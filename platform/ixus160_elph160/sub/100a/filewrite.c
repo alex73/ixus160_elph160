@@ -10,8 +10,8 @@ typedef struct {
 } cam_ptp_data_chunk; //camera specific structure
 
 #define MAX_CHUNKS_FOR_JPEG 7 // filewritetask is prepared for this many chunks
-                              // Found in sub_FFABBB58 (1.00a) --> "CMP     R0, #6" and
-                              // filewritetask() jump table has 7 calls to loc_FFABB944
+                              // Found in sub_FFAB9100 (1.00a) --> "CMP     R0, #6" and
+                              // corresponds to filewritetask() jump table entries 0-6
 /*
  * fwt_data_struct: defined here as it's camera dependent
  * unneeded members are designated with unkn
@@ -39,7 +39,6 @@ typedef struct
 #define FWT_SEEKMASK    0x40   // masks out unneeded bits of seek_flag
 
 #include "../../../generic/filewrite.c"
-
 
 /*************************************************************/
 //** filewritetask @ 0xFFAB8CF0 - 0xFFAB8EB8, length=115
@@ -134,6 +133,7 @@ asm volatile (
 "    CMP R3, #0\n"
 "    BNE loc_A\n" // skip creating directory
 //mod end
+
 "    BL      sub_FF8281A4 \n"
 "    MOV     R1, #0 \n"
 "    MOV     R0, #0x48 \n"
@@ -210,11 +210,13 @@ void __attribute__((naked,noinline)) sub_FFAB89A4_my() {
 asm volatile (
 "    STMFD   SP!, {R4-R9,LR} \n"
 "    MOV     R4, R0 \n"
+
 //hook placed here to avoid conditional branch a few instructions below (watch out for registers!)
-//"  MOV   R0, R4\n"      //data block start, commented out as R0 is already holding what we need
+//"    MOV   R0, R4\n"      //data block start, commented out as R0 is already holding what we need
 "    BL filewrite_main_hook\n"
 "    MOV     R0, R4\n"      //restore register(s)
 //hook end
+
 "    LDR     R0, [R0, #0x4C] \n"
 "    SUB     SP, SP, #0x3C \n"
 "    TST     R0, #1 \n"
@@ -282,7 +284,7 @@ asm volatile (
 "    MOV     R2, R9 \n"
 "    MOV     R1, R5 \n"
 "    MOV     R0, R8 \n"
-"    BL      _Open \n"
+"    BL      fwt_open \n"  // --> Patched. Old value = _Open.
 
 "loc_FFAB8AA4:\n"
 "    CMN     R0, #1 \n"

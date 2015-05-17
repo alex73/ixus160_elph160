@@ -62,5 +62,5 @@ long get_vbatt_min()
 
 long get_vbatt_max()
 {
-    return 4000; // don't actually know
+    return 4000; // tested
 }

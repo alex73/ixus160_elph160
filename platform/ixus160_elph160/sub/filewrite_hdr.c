@@ -7,8 +7,8 @@ typedef struct {
 } cam_ptp_data_chunk; //camera specific structure
 
 #define MAX_CHUNKS_FOR_JPEG 7 // filewritetask is prepared for this many chunks
-                              // Found in sub_FFABBB58 (1.00a) --> "CMP     R0, #6" and
-                              // filewritetask() jump table has 7 calls to loc_FFABB944
+                              // Found in sub_FFAB9100 (1.00a) --> "CMP     R0, #6" and
+                              // corresponds to filewritetask() jump table entries 0-6
 /*
  * fwt_data_struct: defined here as it's camera dependent
  * unneeded members are designated with unkn
@@ -36,4 +36,3 @@ typedef struct
 #define FWT_SEEKMASK    0x40   // masks out unneeded bits of seek_flag
 
 #include "../../../generic/filewrite.c"
-
