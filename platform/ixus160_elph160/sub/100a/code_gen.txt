@@ -222,12 +222,12 @@ ASM
 FW 164
 // We'll get to it later
 PATCHSUB
->>>
-"    .ltorg \n" // added
-<<<
 FW 25
 PATCHSUB ref=1
 FW $
+>>>
+"    .ltorg \n" // added
+<<<
 ENDASM
 ENDFUNC
 
@@ -235,10 +235,10 @@ FUNC ref=1
 ASM
 FW 13
 PATCHSUB
+FW $
 >>>
 "    .ltorg \n" // added
 <<<
-FW $
 ENDASM
 ENDFUNC
 
@@ -255,10 +255,10 @@ PATCHSUB ref=1
 FW 19
 PATCHSUB ref=2
 //->FW
+FW $
 >>>
 "    .ltorg \n" // added
 <<<
-FW $
 ENDASM
 ENDFUNC
 
@@ -267,10 +267,10 @@ ASM
 FW 18
 PATCHSUB ref=0
 //->FW
+FW $
 >>>
 "    .ltorg \n" // added
 <<<
-FW $
 ENDASM
 ENDFUNC
 
@@ -279,10 +279,10 @@ ASM
 FW 9
 PATCHSUB
 //->FW
+FW $
 >>>
 "    .ltorg \n" // added
 <<<
-FW $
 ENDASM
 ENDFUNC
 
@@ -291,10 +291,10 @@ ASM
 FW 8
 PATCHSUB
 //->FW
+FW $
 >>>
 "    .ltorg \n" // added
 <<<
-FW $
 ENDASM
 ENDFUNC
 
