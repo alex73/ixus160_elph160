@@ -212,7 +212,7 @@ asm volatile (
 "    MOV     R4, R0 \n"
 
 //hook placed here to avoid conditional branch a few instructions below (watch out for registers!)
-//"    MOV   R0, R4\n"      //data block start, commented out as R0 is already holding what we need
+"    MOV   R0, R4\n"      //data block start, commented out as R0 is already holding what we need
 "    BL filewrite_main_hook\n"
 "    MOV     R0, R4\n"      //restore register(s)
 //hook end

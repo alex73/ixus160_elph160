@@ -206,8 +206,9 @@ ENDFUNC
 FUNC ref=1
 ASM
 FW 143
-PATCHSUB ref=1
-FW 1
+//PATCHSUB ref=1
+//FW 1
+FW 2
 PATCHSUB ref=0
 FW 8
 >>>
@@ -217,97 +218,22 @@ FW $
 ENDASM
 ENDFUNC
 
-FUNC ref=1
-ASM
-FW 164
-// We'll get to it later
-PATCHSUB
-FW 25
-PATCHSUB ref=1
-FW $
->>>
-"    .ltorg \n" // added
-<<<
-ENDASM
-ENDFUNC
-
-FUNC ref=1
-ASM
-FW 13
-PATCHSUB
-FW $
->>>
-"    .ltorg \n" // added
-<<<
-ENDASM
-ENDFUNC
-
 FUNC ref=0
 ASM
-FW 61
->>>
-// "Test for bit value in a table, don't know what it is"
-<<<
-FW 11
+FW 38
 PATCHSUB ref=0
-FW 8
-PATCHSUB ref=1
-FW 19
-PATCHSUB ref=2
-//->FW
-FW $
->>>
-"    .ltorg \n" // added
-<<<
+->FW
 ENDASM
 ENDFUNC
 
 FUNC ref=0
 ASM
-FW 18
-PATCHSUB ref=0
-//->FW
-FW $
->>>
-"    .ltorg \n" // added
-<<<
-ENDASM
-ENDFUNC
-
-FUNC ref=1
-ASM
-FW 9
-PATCHSUB
-//->FW
-FW $
->>>
-"    .ltorg \n" // added
-<<<
-ENDASM
-ENDFUNC
-
-FUNC ref=2
-ASM
-FW 8
-PATCHSUB
-//->FW
-FW $
->>>
-"    .ltorg \n" // added
-<<<
-ENDASM
-ENDFUNC
-
-// Still can't find it...
-// FF999DE4 is reaaaally near it.
-FUNC ref=0
-ASM
-// Maybe FW 20 if the call to the BL is important...
-FW 19
+FW 16
 >>>
 "    BL      wait_until_remote_button_is_released\n" // added
 "    BL      capt_seq_hook_set_nr\n"                 // added
 <<<
+FW 1
 ->FW
 ENDASM
 ENDFUNC

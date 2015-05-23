@@ -126,12 +126,15 @@ void *vid_get_viewport_live_fb() {
 	// and selected value that gave the fastest Motion Detect response using http://dataghost.com/chdk/md_meter.html.
 }
 */
+
+
 char *hook_raw_image_addr()
 {
 //FFB7C9F0
 // Also try 40D608E0
 return (char*) 0x41FF6B60;
 }
+
 
 
 // taken from a2200
