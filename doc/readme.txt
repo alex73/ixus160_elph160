@@ -59,26 +59,40 @@ What are scripts? Scripts are BASIC language programs that give you the ability 
 ************************************
 IXUS160 / ELPH160 Notes 
 ************************************
-To enter CHDK <ALT> mode use the [>] Play button.
-This may be changed to Video in the options, but this conflicts with some shortcuts.
 
-This camera does not have an adjustable aperture. It does have an ND filter
+To enter CHDK <ALT> mode use the [>] Play button.
 
 This is a beta port, use at your own risk!
 
 TESTED
 ******
 
+Filewrite task
+PTP support
+Overrides
+
 NOT IMPLEMENTED
 ***************
-exmem support (note, camera has ~1.7 mb regular heap free on startup with CHDK)
+
+exmem support
 
 OTHER ISSUES
 ************
 
 KNOWN BUGS
 **********
-********************************
+
+Edge display only shown on half the screen (vertically)
+RAW saving does not work
+Some buffers are missing (zebra and al.)
+
+THANKS
+******
+
+This port could not have been done without the help of the CHDK folks.
+Without any specific order, thanks to reyalp, waterwingz, srsa_4c;
+Thanks to amavroidis for donating the camera to help testing;
+Thanks to markvandenborre for testing my bilions of failures;********************************
 
 02 - Installation
 
