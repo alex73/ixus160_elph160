@@ -402,13 +402,13 @@
 0xff968f74,GetAEIntegWinDataWithMode_FW
 0xff969184,GetAllAEIntegralAllValueWithFix_FW
 0xff82dc88,GetBatteryCoverClose_FW
-0xff86f2c8,GetBatteryTemperature,(stubs_entry_2.s)
+0xff86f06c,GetBatteryTemperature
 0xff86f06c,GetBatteryTemperature_FW
 0xffaa7164,GetBatteryVoltage_FW
 0xff89b314,GetBuildDate_FW
 0xff89b328,GetBuildTime_FW
 0xffaa6db0,GetCameraInformationData_FW
-0xff86f2c4,GetCCDTemperature,(stubs_entry_2.s)
+0xff86eff4,GetCCDTemperature
 0xff86eff4,GetCCDTemperature_FW
 0xffb7e100,GetCdsGainValue_FW
 0xffb7e268,GetCdsPreGainReg_FW
@@ -539,7 +539,7 @@
 0xff82a0ac,GetNumberOfPostedMessages
 0xffb7e180,GetObClampValue_FW
 0xff969254,GetOnlyAEIntegData_FW
-0xff86f2c0,GetOpticalTemperature,(stubs_entry_2.s)
+0xff86f0e4,GetOpticalTemperature
 0xff86f0e4,GetOpticalTemperature_FW
 0xff9af504,GetParameterData
 0xffb7b688,GetPixelsOfViewangle_FW

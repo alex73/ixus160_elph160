@@ -120,9 +120,28 @@ long get_target_file_num() {
 
 // We have CAM_DATE_FOLDER_NAMING, so everything should be good
 #if defined(CAM_DATE_FOLDER_NAMING)
+/* Different signature, don't know how it works
 void get_target_dir_name(char *out) {
-    extern void _GetImageFolder(char*,int,int,int);
-    _GetImageFolder(out,get_file_next_counter(),CAM_DATE_FOLDER_NAMING,time(NULL));
+    extern void _GetImageFolder(char*,int,int);
+    _GetImageFolder(out,get_file_next_counter(),CAM_DATE_FOLDER_NAMING);
+}
+*/
+long get_target_dir_num() {
+    long n;
+
+    n = get_file_next_counter();
+    n = (n>>18)&0x3FF;
+    return n;
+}
+
+void get_target_dir_name(char *out) {
+	int month;
+	struct tm *ttm;
+	unsigned long t;
+	t = time(NULL);
+	ttm = localtime(&t);
+	month = ttm->tm_mon + 1;
+	sprintf(out, "A/DCIM/%03d___%02d", get_target_dir_num(), month);
 }
 #else
 long get_target_dir_num() {
@@ -133,6 +152,3 @@ long get_target_dir_num() {
     return n;
 }
 #endif
-
-// what is this
-int circle_of_confusion = 5;

@@ -2,10 +2,10 @@
 #define NULL_SUB 0xff83441c
 
 // Looks good enough...
-NHSTUB(DeleteFile_Fut                         ,0xff8274a4)
-NHSTUB(GetFocusLensSubjectDistanceFromLens    ,0xff98df94)
+NHSTUB(DeleteFile_Fut, 0xff8274a4)
+NHSTUB(GetFocusLensSubjectDistanceFromLens, 0xff98df94)
 
-NHSTUB(MakeDirectory_Fut                     ,0xff827fb4) // mkdir. This required #define MKDIR_RETURN_ONE_ON_SUCCESS
+NHSTUB(MakeDirectory_Fut,0xff827fb4) // mkdir. This required #define MKDIR_RETURN_ONE_ON_SUCCESS
 
 // Try from loc_ff8369cc
 // or sub_ff99ee7c
@@ -14,7 +14,7 @@ NHSTUB(MakeDirectory_Fut                     ,0xff827fb4) // mkdir. This require
 // try 0x6B21D8
 // or sub_ff825374
 // 0xff826964
-NHSTUB(time                                  ,0x006b21d8)
+NHSTUB(time, 0xffa1b39c)
 
 // Knowing that
 //NHSTUB(_log        ,0x006bb388) //111
@@ -28,8 +28,6 @@ NHSTUB(RefreshPhysicalScreen, NULL_SUB)
 NHSTUB(SetZoomActuatorSpeedPercent, NULL_SUB)
 NHSTUB(UnsetZoomForMovie, NULL_SUB)
 
-// Guessed from FFBC0DF4
-// Not sure...
-NHSTUB(GetOpticalTemperature, 0xFF86F2C0)
-NHSTUB(GetCCDTemperature,     0xFF86F2C4)
-NHSTUB(GetBatteryTemperature, 0xFF86F2C8)
+NHSTUB(CreateTask_low,          0x006B15A4)
+DEF(hook_CreateTask_low,        0x006B15A4)
+DEF(task_DvlpSeqTask,           0xff99bc70)

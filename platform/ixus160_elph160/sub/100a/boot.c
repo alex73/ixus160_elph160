@@ -141,67 +141,72 @@ asm volatile (
 "    CMP     R3, R1 \n"
 "    STRCC   R2, [R3], #4 \n"
 "    BCC     loc_FF820170 \n"
-/* Install task hooks via 0x193x is not possible with this new dryos version
-   So the below code patches the CreateTask function in RAM to install our
-   hook -- ERR99
-*/
-// Install CreateTask patch
-"    LDR     R0, =patch_CreateTask\n"   // Patch data
+/* CreateTask is located in ROM, patching the lower level CreateTask_low function instead
+ * Note: task function is the first argument
+ */
+// Install CreateTask_low patch
+"    LDR     R0, =patch_CreateTask_low\n"   // Patch data
 "    LDM     R0, {R1,R2}\n"             // Get two patch instructions
-"    LDR     R0, =hook_CreateTask\n"    // Address to patch
+"    LDR     R0, =hook_CreateTask_low\n"    // Address to patch
 "    STM     R0, {R1,R2}\n"             // Store patch instructions
 
 "    B       sub_FF8203C4_my \n"  // --> Patched. Old value = 0xFF8203C4.
 
-"patch_CreateTask:\n"
+"patch_CreateTask_low:\n"
 "    LDR     PC, [PC,#-0x4]\n"          // Do jump to absolute address CreateTask_my
-"    .long   CreateTask_my\n"
+"    .long   CreateTask_low_my\n"
 );
 }
 
 /*************************************************************/
-//** CreateTask_my @ 0xFF824A30 - 0xFF824A34, length=2
-void __attribute__((naked,noinline)) CreateTask_my() {
+//** CreateTask_low_my @ 0x006B15A4 - 0x006B15A8, length=2
+void __attribute__((naked,noinline)) CreateTask_low_my() {
 asm volatile (
-" STMFD SP!, {R0}\n"
-//R3 = Pointer to task function to create
+" STMFD SP!, {R1}\n"
+//R0 = Pointer to task function to create
 
 /*** INSTALL capt_seq_task() hook ***/
-" LDR R0, =task_CaptSeq\n" // DryOS original code function ptr.
-" CMP R0, R3\n" // is the given taskptr equal to our searched function?
-" LDREQ R3, =capt_seq_task\n" // if so replace with our task function base ptr.
+" LDR R1, =task_CaptSeq\n" // DryOS original code function ptr.
+" CMP R1, R0\n" // is the given taskptr equal to our searched function?
+" LDREQ R0, =capt_seq_task\n" // if so replace with our task function base ptr.
 " BEQ exitHook\n" // below compares not necessary if this check has found something.
 
+/*** INSTALL task_developseq() hook ***/
+//" LDR R1, =task_DvlpSeqTask\n"
+//" CMP R1, R0\n"
+//" LDREQ R0, =task_developseq_my\n"
+//" BEQ exitHook\n"
+
 /*** INSTALL exp_drv_task() hook ***/
-" LDR R0, =task_ExpDrv\n"
-" CMP R0, R3\n"
-" LDREQ R3, =exp_drv_task\n"
+" LDR R1, =task_ExpDrv\n"
+" CMP R1, R0\n"
+" LDREQ R0, =exp_drv_task\n"
 " BEQ exitHook\n"
 
 /*** INSTALL filewrite() hook ***/
-" LDR R0, =task_FileWrite\n"
-" CMP R0, R3\n"
-" LDREQ R3, =filewritetask\n"
+" LDR R1, =task_FileWrite\n"
+" CMP R1, R0\n"
+" LDREQ R0, =filewritetask\n"
 " BEQ exitHook\n"
 
 /*** INSTALL movie_record_task() hook ***/
-" LDR R0, =task_MovieRecord\n"
-" CMP R0, R3\n"
-" LDREQ R3, =movie_record_task\n"
+" LDR R1, =task_MovieRecord\n"
+" CMP R1, R0\n"
+" LDREQ R0, =movie_record_task\n"
 " BEQ exitHook\n"
 
 /*** INSTALL init_file_modules_task() hook ***/
-" LDR R0, =task_InitFileModules\n"
-" CMP R0, R3\n"
-" LDREQ R3, =init_file_modules_task\n"
+" LDR R1, =task_InitFileModules\n"
+" CMP R1, R0\n"
+" LDREQ R0, =init_file_modules_task\n"
 
 "exitHook:\n"
 // restore overwritten registers
-" LDMFD SP!, {R0}\n"
+" LDMFD SP!, {R1}\n"
 // Execute overwritten instructions from original code, then jump to firmware
-"    STMFD   SP!, {R1-R9,LR} \n"
-"    MOV     R4, R0 \n"
-"    LDR     PC, =0xFF824A38 \n"  // Continue in firmware
+"    STMFD   SP!, {R4-R8,LR} \n"
+"    CMP     R3, #0 \n"
+"    LDR     PC, =0x006B15AC \n"  // Continue in firmware
 );
 }
 

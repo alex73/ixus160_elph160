@@ -22,14 +22,11 @@
 // Stubs below should be checked. Stub not matched 100%, or difference found to current 'stubs_entry_2.S'
 //    Name                                     Address      Rule  %  Comp to stubs_entry_2.S
 //NHSTUB(DeleteFile_Fut                       ,0xff8274a4) //  1 90%        == 0xff8274a4
-//NHSTUB(GetBatteryTemperature                ,0xff86f06c) //102        *** != 0xff86f2c8
-//NHSTUB(GetCCDTemperature                    ,0xff86eff4) //102        *** != 0xff86f2c4
 //NHSTUB(GetFocusLensSubjectDistanceFromLens  ,0xff98df94) //  3 90%        == 0xff98df94
-//NHSTUB(GetOpticalTemperature                ,0xff86f0e4) //120        *** != 0xff86f2c0
 // ERROR: MakeDirectory_Fut is not found.                  //--- ---    *** != 0xff827fb4
 // ERROR: RefreshPhysicalScreen is not found.              //--- ---    *** != 0x00000000
 // ERROR: _log10 is not found.                             //--- ---    *** != 0x006bb8c8
-// ERROR: time is not found.                               //--- ---    *** != 0x006b21d8
+// ERROR: time is not found.                               //--- ---    *** != 0xffa1b39c
 
 // Check of modemap from 'platform/CAMERA/shooting.c':
 // Firmware modemap table found @ffadd0bc -> ffcb2584
@@ -135,6 +132,8 @@ NHSTUB(Fread_Fut                              ,0xff82765c) //120
 NHSTUB(FreeUncacheableMemory                  ,0xff826230) //112
 NHSTUB(Fseek_Fut                              ,0xff827750) //120
 NHSTUB(Fwrite_Fut                             ,0xff8276b0) //120
+NHSTUB(GetBatteryTemperature                  ,0xff86f06c) //102
+NHSTUB(GetCCDTemperature                      ,0xff86eff4) //102
 NHSTUB(GetCurrentAvValue                      ,0xff887d20) //120
 NHSTUB(GetDrive_ClusterSize                   ,0xff831724) //122
 NHSTUB(GetDrive_FreeClusters                  ,0xff831f30) //119
@@ -143,6 +142,7 @@ NHSTUB(GetFocusLensSubjectDistance            ,0xff98dbb0) //102
 NHSTUB(GetImageFolder                         ,0xff9719f4) //122
 NHSTUB(GetKbdState                            ,0xff86b89c) //109
 NHSTUB(GetMemInfo                             ,0xff823400) //115
+NHSTUB(GetOpticalTemperature                  ,0xff86f0e4) //120
 NHSTUB(GetParameterData                       ,0xff9af504) //101
 NHSTUB(GetPropertyCase                        ,0xff89cf04) //101
 NHSTUB(GetSystemTime                          ,0xffadacc0) //120

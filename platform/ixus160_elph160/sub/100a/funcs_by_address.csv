@@ -341,11 +341,11 @@
 0xff86dd38,GetInputAverageLevel_FW
 0xff86dd44,GetNowInputAverageLevel_FW
 0xff86edfc,task_Thermometer
-0xff86f2c4,GetCCDTemperature,(stubs_entry_2.s)
+0xff86eff4,GetCCDTemperature
 0xff86eff4,GetCCDTemperature_FW
-0xff86f2c8,GetBatteryTemperature,(stubs_entry_2.s)
+0xff86f06c,GetBatteryTemperature
 0xff86f06c,GetBatteryTemperature_FW
-0xff86f2c0,GetOpticalTemperature,(stubs_entry_2.s)
+0xff86f0e4,GetOpticalTemperature
 0xff86f0e4,GetOpticalTemperature_FW
 0xff86f208,IsOpticalTemperature_FW
 0xff86f23c,IsCCDTemperature_FW
