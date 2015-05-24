@@ -17,9 +17,10 @@
 int gui_mpopup_kbd_process();
 void gui_mpopup_kbd_process_menu_btn();
 void gui_mpopup_draw();
+static int gui_mpopup_touch_handler(int,int);
 
-gui_handler GUI_MODE_MPOPUP_MODULE = 
-    /*GUI_MODE_MPOPUP*/ { GUI_MODE_MPOPUP, gui_mpopup_draw, gui_mpopup_kbd_process, gui_mpopup_kbd_process_menu_btn, GUI_MODE_FLAG_NORESTORE_ON_SWITCH };
+gui_handler GUI_MODE_MPOPUP_MODULE =
+    /*GUI_MODE_MPOPUP*/ { GUI_MODE_MPOPUP, gui_mpopup_draw, gui_mpopup_kbd_process, gui_mpopup_kbd_process_menu_btn, gui_mpopup_touch_handler, GUI_MODE_FLAG_NORESTORE_ON_SWITCH };
 
 // Simple popup menu. No title, no separators, only processing items
 
@@ -28,11 +29,11 @@ static gui_handler              *gui_mpopup_mode_old;
 static int                      running = 0;
 static char                     mpopup_to_draw;
 
-#define MAX_ACTIONS             10
+#define MAX_ACTIONS             14
 
 struct mpopup_item* actions;
 
-static int                      mpopup_actions[MAX_ACTIONS];    // Content of raised popupmenu
+static short                    mpopup_actions[MAX_ACTIONS];    // Content of raised popupmenu
 static int                      mpopup_actions_num;             // Num of items in raised popupmenu
 static int                      mpopup_actions_active;          // Idx of current item (cursor)
 static coord                    mpopup_actions_x, mpopup_actions_y;    // top-left coord of window
@@ -50,14 +51,15 @@ void gui_mpopup_init(struct mpopup_item* popup_actions, const unsigned int flags
 
     mpopup_actions_num = 0;
     actions = popup_actions;
-    for (i=0; actions[i].flag && mpopup_actions_num<MAX_ACTIONS; ++i) {
-        if (flags & MPOPUP_MASK & actions[i].flag)
+    for (i=0; actions[i].flag && mpopup_actions_num<MAX_ACTIONS; ++i)
+    {
+        if ((flags & MPOPUP_MASK & actions[i].flag) || (actions[i].flag == MPOPUP_CANCEL))
             mpopup_actions[mpopup_actions_num++] = i;
-		else if ( actions[i].flag==MPOPUP_CANCEL )
-			mpopup_actions[mpopup_actions_num++] = i;
     }
-    if (mpopup_actions_num == 0) {
+    if (mpopup_actions_num == 0)
+    {
         on_select(MPOPUP_CANCEL);
+        running--;
 		return;
 	}
 
@@ -69,7 +71,8 @@ void gui_mpopup_init(struct mpopup_item* popup_actions, const unsigned int flags
 }
 
 //-------------------------------------------------------------------
-unsigned int gui_mpopup_result() {
+unsigned int gui_mpopup_result()
+{
     return actions[mpopup_actions[mpopup_actions_active]].flag;
 }
 
@@ -77,13 +80,11 @@ unsigned int gui_mpopup_result() {
 static void gui_mpopup_draw_actions() {
     int i;
     coord y = mpopup_actions_y;
-    color cl;
+    twoColors cl;
 
     for (i=0; i<mpopup_actions_num; ++i) {
-        cl = MAKE_COLOR((mpopup_actions_active==i)?COLOR_RED:COLOR_GREY, (mpopup_actions_active==i)?COLOR_RED:COLOR_GREY);
-        draw_filled_rect(mpopup_actions_x, y, mpopup_actions_x+mpopup_actions_w*FONT_WIDTH, y+FONT_HEIGHT-1, cl);
         cl = MAKE_COLOR((mpopup_actions_active==i)?COLOR_RED:COLOR_GREY, COLOR_WHITE);
-        draw_string(mpopup_actions_x+FONT_WIDTH, y, lang_str(actions[mpopup_actions[i]].text), cl);
+        draw_string_justified(mpopup_actions_x, y, lang_str(actions[mpopup_actions[i]].text), cl, FONT_WIDTH, mpopup_actions_w*FONT_WIDTH+1, TEXT_LEFT|TEXT_FILL);
         y+=FONT_HEIGHT;
     }
 }
@@ -105,8 +106,8 @@ void gui_mpopup_draw() {
     
         x = (camera_screen.width - w*FONT_WIDTH) / 2;
         y = (camera_screen.height - h*FONT_HEIGHT) / 2;
-        draw_rect_shadow(x-3, y-3, x+w*FONT_WIDTH+5, y+h*FONT_HEIGHT+4, COLOR_BLACK, 3); //shadow
-        draw_filled_rect_thick(x-4, y-4, x+w*FONT_WIDTH+4, y+h*FONT_HEIGHT+3, MAKE_COLOR(COLOR_GREY, COLOR_WHITE), 3); // main box
+        draw_rectangle(x-4, y-4, x+w*FONT_WIDTH+4, y+h*FONT_HEIGHT+3,
+                       MAKE_COLOR(COLOR_GREY, COLOR_WHITE), RECT_BORDER3|DRAW_FILLED|RECT_SHADOW3); // main box
     
         mpopup_actions_x = x;
         mpopup_actions_y = y;
@@ -123,7 +124,7 @@ void exit_mpopup(int action)
     gui_set_mode(gui_mpopup_mode_old);
 
 	mpopup_on_select_t on_select = mpopup_on_select;	// this could be reinited in callback
-	mpopup_on_select=0;
+	mpopup_on_select = 0;
     if (on_select) 
         on_select(action);
 
@@ -157,6 +158,21 @@ int gui_mpopup_kbd_process()
     case KEY_SET:
 		exit_mpopup(actions[mpopup_actions[mpopup_actions_active]].flag);		
         break;
+    }
+    return 0;
+}
+
+static int gui_mpopup_touch_handler(int sx, int sy)
+{
+    if ((sx >= mpopup_actions_x) && (sx <= mpopup_actions_x+mpopup_actions_w*FONT_WIDTH) && (sy >= mpopup_actions_y) && (sy <= mpopup_actions_y+mpopup_actions_num*FONT_HEIGHT))
+    {
+        sy = (sy - mpopup_actions_y) / FONT_HEIGHT;
+        if (mpopup_actions_active != sy)
+        {
+            mpopup_actions_active = sy;
+            mpopup_to_draw = 1;
+        }
+        return KEY_SET;
     }
     return 0;
 }
@@ -213,8 +229,8 @@ ModuleInfo _module_info =
     ANY_CHDK_BRANCH, 0, OPT_ARCHITECTURE,			// Requirements of CHDK version
     ANY_PLATFORM_ALLOWED,		// Specify platform dependency
 
-    (int32_t)"Popup menu module",   // Module name
-    0,
+    (int32_t)"Popup menu module",
+    MTYPE_EXTENSION,
 
     &_libmpopup.base,
 

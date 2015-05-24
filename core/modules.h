@@ -65,8 +65,8 @@
 //--------------------------
 #include "script_api.h"
 
-// MODULE "eyefi"
+// MODULE "Shot Histogram"
 //--------------------------
-#include "eyefi.h"
+#include "shot_histogram.h"
 
 #endif

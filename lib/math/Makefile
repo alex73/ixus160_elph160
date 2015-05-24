@@ -1,23 +1,24 @@
 topdir=../../
 
-SKIPPLATFORMCHECK=1
+include $(topdir)makefile_core.inc
 
-include $(topdir)makefile.inc
+OBJS = $Od2d.o $Owrapper.o
 
-CFLAGS+=$(CTHUMB) -DCHDK_MODULE_CODE
+all: $Olibmath.a
 
-OBJS = d2d.o wrapper.o
+$Olibmath.a: $(OBJS)
 
-all: libmath.a
-
-libmath.a: $(OBJS)
-
-d2d.o: d2d.c fdlibm.h
+$Od2d.o: d2d.c fdlibm.h
 
 clean:
-	rm -f $(OBJS) *.a
+	rm -f $O*.* *.o *.a
 
 distclean: clean
 	rm -f $(OBJS:.o=.d)
 
 include $(topdir)bottom.inc
+
+
+# Define empty recipes for source files (including the makefiles)
+# to prevent make from trying implicit rules to create them. Speeds up build process
+fdlibm.h: ;

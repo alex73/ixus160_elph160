@@ -1,6 +1,15 @@
+# *************
+# Legacy makefile - no longer used (see other makefile_???.inc files)
+#
+# Kept temporarily for CHDK-Shell compatibility
+# Changing this file will have no effect on CHDK build
+# *************
+
+# Define default target (place this first so it is always selected if no target on command line)
+.PHONY: default
+default: all
+
 MEMISOSIZE="(&_end-&_start)"
-PLATFORM=ixus160_elph160
-PLATFORMSUB=100a
 # override this on the command line or in buildconf to use PRIMARY.BIN from a different tree
 # should be an absolute path
 PRIMARY_ROOT=$(topdir)platform
@@ -11,6 +20,10 @@ include $(topdir)buildconf.inc
 -include $(topdir)localbuildconf.inc
 include $(topdir)version.inc
 -include $(topdir)revision.inc
+
+# Sub-directory for object and dump files
+# used by modules build
+O=.o/
 
 ifndef OPT_DE_VERSION
     VER=CHDK
@@ -270,13 +283,16 @@ endif
 
 ##########################################################################
 
-.PHONY: default
-default: all
-
 ifndef SKIPBUILDRULES
 
 # rule for building .o from .c in the same directory
 %.o: %.c
+	@echo $< \-\> $@
+	$(CC) $(CFLAGS) -nostdinc -c -o $@ $<
+
+# rule for building .o in $O sub-directory from .c in the current directory
+$O%.o: %.c
+	mkdir -p $O
 	@echo $< \-\> $@
 	$(CC) $(CFLAGS) -nostdinc -c -o $@ $<
 
@@ -286,7 +302,8 @@ ifndef SKIPBUILDRULES
 	$(CC) $(CFLAGS) $(CTHUMB) -nostdinc -c -o $@ $<
 
 # rule for building .o from .c in the 'core' directory
-%.o: $(topdir)core/%.c
+$O%.o: $(topdir)core/%.c
+	mkdir -p $O
 	@echo $< \-\> $@
 	$(CC) $(CFLAGS) -nostdinc -c -o $@ $<
 
@@ -296,12 +313,19 @@ ifndef SKIPBUILDRULES
 	$(CC) $(CFLAGS) $(CTHUMB) -nostdinc -c -o $@ $<
 
 # rule for building .o from .c in the 'modules' directory
-%.o: $(topdir)modules/%.c
+$O%.o: $(topdir)modules/%.c
+	mkdir -p $O
 	@echo $< \-\> $@
 	$(CC) $(CFLAGS) -nostdinc -c -o $@ $<
-	
+
 # rule for building .o from .S in the same directory
 %.o: %.S
+	@echo $< \-\> $@
+	$(CC) $(CFLAGS) -nostdinc -c -o $@ $<
+
+# rule for building .o in $O sub-directory from .S in the current directory
+$O%.o: %.S
+	mkdir -p $O
 	@echo $< \-\> $@
 	$(CC) $(CFLAGS) -nostdinc -c -o $@ $<
 	

@@ -31,10 +31,6 @@ static int script_terminate_request = 0; // script abort requested from another 
 // Forward references
 void script_end();
 
-// External references
-extern const char* script_source_str;
-extern char script_params[SCRIPT_NUM_PARAMS][28];
-
 //=======================================================
 //                 SCRIPT CONSOLE FUNCTIONS
 //=======================================================
@@ -94,6 +90,12 @@ void script_console_add_line(long str_id)
         write(print_screen_d, str, strlen(str) );
         write(print_screen_d, &nl, 1);
     }
+}
+
+void script_console_add_error(long str_id)
+{
+    console_set_autoredraw(1);          // Force console display on
+    script_console_add_line(str_id);
 }
 
 //=======================================================
@@ -161,7 +163,7 @@ void script_get_alt_text(char *buf)
 void script_check_terminate(void)
 {
     if(camera_info.state.state_kbd_script_run && script_terminate_request) {
-        script_console_add_line(LANG_CONSOLE_TEXT_TERMINATED);
+        script_console_add_error(LANG_CONSOLE_TEXT_TERMINATED);
         script_end();
     }
 }
@@ -173,7 +175,7 @@ static int gui_script_kbd_process()
     // Stop a script if the shutter button pressed in Script mode
     if (kbd_is_key_clicked(script_terminate_key))
     {
-        script_console_add_line(LANG_CONSOLE_TEXT_INTERRUPTED);
+        script_console_add_error(LANG_CONSOLE_TEXT_INTERRUPTED);
         if (camera_info.state.state_kbd_script_run == SCRIPT_STATE_INTERRUPTED)
             script_end();
         else
@@ -206,7 +208,7 @@ void gui_script_draw()
 }
 
 // GUI handler for Script mode
-gui_handler scriptGuiHandler = { GUI_MODE_SCRIPT, gui_script_draw, gui_script_kbd_process, 0, 0 };      
+gui_handler scriptGuiHandler = { GUI_MODE_SCRIPT, gui_script_draw, gui_script_kbd_process, 0, 0, 0 };
 
 static gui_handler *old_gui_handler = 0;
 
@@ -236,6 +238,7 @@ void script_end()
     script_terminate_key = KEY_SHOOT_FULL ;
 
     script_print_screen_end();
+    console_set_autoredraw(1);          // Force console display on in case script turned it off
 
     // Restore old handler - prevent calling MD draw after module unloaded
     if (old_gui_handler)
@@ -262,7 +265,7 @@ void script_end()
     action_stack_kill(running_script_stack_name);
     running_script_stack_name = -1;
 
-	shot_histogram_set(0);
+	libshothisto->shot_histogram_set(0);
     kbd_key_release_all();
 
     conf_setAutosave(1);    // Turn on autosave of config file in conf_setValue in case script turned it off
@@ -273,7 +276,9 @@ long script_start_gui( int autostart )
 {
     int i;
 
-    shot_histogram_set(0);
+    if (conf.script_file[0] == 0) return 0;
+
+    libshothisto->shot_histogram_set(0);
     camera_info.state.auto_started = autostart;
 
     // Kill high speed USB timer if running
@@ -293,16 +298,16 @@ long script_start_gui( int autostart )
     script_console_add_line((autostart)?LANG_CONSOLE_TEXT_AUTOSTARTED:LANG_CONSOLE_TEXT_STARTED);
 
     module_set_script_lang(conf.script_file);
-    if ( !libscriptapi->script_start(script_source_str,0) )
+    if ( !libscriptapi->script_start_file(conf.script_file) )
     {
         return -1;
     }
-    for (i=0; i<SCRIPT_NUM_PARAMS; ++i)
+
+    sc_param *p = script_params;
+    while (p)
     {
-        if( script_params[i][0] )
-        {
-            libscriptapi->set_variable(i, conf.script_vars[i]);
-        }
+        libscriptapi->set_variable(p->name, p->val, (p->range == 1), (p->data_type == DTYPE_TABLE), p->option_count, p->options);
+        p = p->next;
     }
 
     conf_update_prevent_shutdown();

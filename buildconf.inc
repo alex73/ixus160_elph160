@@ -28,21 +28,24 @@ OPT_PTP=1
 #OPT_MD_DEBUG=1
 
 # needs proper fi2.inc in platform/ !!! see http://chdk.setepontos.com/index.php/topic,2995.0.html
-OPT_FI2=1
+#OPT_FI2=1
 
 # if enabled, compiler will produce a lot of warnings, maybe not always correct ones, see http://chdk.setepontos.com/index.php/topic,2509.msg32191.html#msg32191
 #OPT_WARNINGS=1
 
 # If enabled (and reference binaries are present in /tools), compiler will generate function signatures
-#OPT_GEN_SIGS=1
+OPT_GEN_SIGS=1
 # If enabled (and firmware binaries are present) compiler will update "stubs_entry.S"
-#OPT_GEN_STUBS=1
+OPT_GEN_STUBS=1
+
+# Define this to add a 100K block of 0 bytes to the end of main.bin
+#OPT_ZERO100K
 
 # for CHDK-DE presets without OPT_DEFAULT_LANG
 #OPT_DE_VERSION=1
 
 # make the build show an "expired" notice after N days. To encourage users of test builds to provide feedback
-#OPT_EXPIRE_TEST=7
+#OPT_EXPIRE_TEST=
 
 # Generate firmware calls and branches as PC24 relative offsets instead of long calls (saves 2.5 - 3K on core build size)
 #  - requires a 32 bit version of ARM GCC (tested on Windows with GCC 4.4.0, 4.5.1 & 4.6.2), fails on 64 bit GCC (Linux & OSX)
@@ -73,4 +76,4 @@ OPT_FI2=1
 #OPT_DEFAULT_LANG=
 
 # Default svn revision. Used when svnversion fail.
-DEF_SVN_REF=
+DEF_SVN_REF=0

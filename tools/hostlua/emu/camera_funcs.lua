@@ -1,4 +1,13 @@
 local camera_funcs = {}
+
+local function on_off_value(value)
+    if type(value) == "boolean" then
+        return value and 1 or 0
+    else
+        return value
+    end
+end
+
 -- keys
 function camera_funcs.shoot()
     if camera_state.raw > 0 then
@@ -47,6 +56,10 @@ function camera_funcs.is_pressed()
         -- needs logic
 end
 
+function camera_funcs.set_exit_key(s)
+        print("exit key is:", s)
+end
+
 -- exposure
 function camera_funcs.get_av96()
     return camera_state.av96
@@ -65,7 +78,7 @@ function camera_funcs.get_sv96()
 end
 
 function camera_funcs.get_nd_present()
-    return 0
+    return camera_state.nd
 end
 
 function camera_funcs.set_nd_filter(n)
@@ -118,11 +131,12 @@ end
 
 -- raw
 function camera_funcs.set_raw(n)
-    if n == 0 or n == 1 then camera_state.raw = n end
+    local _n = on_off_value(n)
+    if _n == 0 or _n == 1 then camera_state.raw = _n end
 end
 
 function camera_funcs.get_raw()
-    return camera_state.raw
+    return camera_state.raw == 1 and true or false
 end
 
 function camera_funcs.get_raw_count()
@@ -132,7 +146,6 @@ end
 function camera_funcs.get_IS_mode()
     return camera_state.IS_mode
 end
-
 
 -- script status
 function camera_funcs.sleep(n)
@@ -155,11 +168,11 @@ function camera_funcs.get_day_seconds()
 end
 
 function camera_funcs.get_time(c)
-  if c=="D" then 
+  if c=="D" then
     return os.date("%d")
-  elseif c=="M" then 
+  elseif c=="M" then
     return os.date("%m")
-  elseif c=="Y" then 
+  elseif c=="Y" then
     return os.date("%Y")
   elseif c=="h" then
     return os.date("%H")
@@ -167,7 +180,7 @@ function camera_funcs.get_time(c)
     return os.date("%M")
   elseif c=="s" then
     return os.date("%S")
-  else 
+  else
     return 9999
   end
 end
@@ -181,15 +194,16 @@ function camera_funcs.get_free_disk_space(n)
     return 1000000
 end
 
--- text console
+-- text/logs/console/drawings
 function camera_funcs.cls()
     print(">delete screen<")
 end
 
 function camera_funcs.print_screen(n)
-    if n == 0 or n == false then
+    local _n = on_off_value(n)
+    if _n == 0 then
         print(">write log file off<")
-    elseif n == -1000 then
+    elseif _n == -1000 then
         print(">write log file append<")
     else
         print(">write log file on<")
@@ -208,8 +222,50 @@ function camera_funcs.set_console_autoredraw(n)
     print(">redraw console<", n)
 end
 
-function camera_funcs.draw_string(col,row,msg,c1,c2)
-    print("draw string @ " .. col..":"..row.." Colors:"..c1..":","Msg> "..msg)
+function camera_funcs.draw_string(x,y,s,c1,c2)
+    print(string.format("draw string x:%d y:%d Colors:%d %d Msg> %s", x, y, c1, c2, s))
+end
+
+function camera_funcs.draw_pixel(x,y,cl)
+    print(string.format("draw string x:%d y:%d Color:%d", x, y, cl))
+end
+
+function camera_funcs.draw_rect(x1, y1, x2, y2, cl, th)
+    print(string.format("draw rect x1:%d y1:%d x2:%d y2:%d Color:%d", x1, y1, x2, y2, cl))
+end
+
+function camera_funcs.draw_rect_filled(x1, y1, x2, y2, c1, c2, th)
+    print(string.format("draw filled rect x1:%d y1:%d x2:%d y2:%d Colors:%d %d", x1, y1, x2, y2, c1, c2))
+end
+
+function camera_funcs.draw_ellipse(x, y, r1, r2, cl)
+    print(string.format("draw ellipse x:%d y:%d r1:%d r2:%d Color:%d", x, y, r1, r2, cl))
+end
+
+function camera_funcs.draw_ellipse_filled(x, y, r1, r2, cl)
+    print(string.format("draw filled ellipse x:%d y:%d r1:%d r2:%d Color:%d", x, y, r1, r2, cl))
+end
+
+function camera_funcs.draw_clear()
+    print("del drawings")
+end
+
+function camera_funcs.get_gui_screen_width()
+    return 360
+end
+
+function camera_funcs.get_gui_screen_height()
+    return 240
+end
+
+function camera_funcs.set_draw_title_line(n)
+    local _n = on_off_value(n)
+    if _n == 1 then print(">title line on<") camera_state.title_line = 1 end
+    if _n == 0 then print(">title line off<") camera_state.title_line = 0 end
+end
+
+function camera_funcs.get_draw_title_line()
+    return camera_state.title_line
 end
 
 -- lens & focus
@@ -223,6 +279,10 @@ end
 
 function camera_funcs.get_focus_mode()
     return camera_state.f_mode
+end
+
+function camera_funcs.get_focus_state()
+    return 1
 end
 
 function camera_funcs.get_dofinfo()
@@ -254,9 +314,23 @@ function camera_funcs.set_zoom(n)
     camera_state.zoom=n
 end
 
+function camera_funcs.set_mf(n)
+    local _n = on_off_value(n)
+    if _n == 1 then print(">MF on<") end
+    if _n == 0 then print(">MF off<") end
+    return camera_state.rec
+end
+
 function camera_funcs.set_aflock(n)
-    if n == 1 then print(">aflock on<") end
-    if n == 0 then print(">aflock off<") end
+    local _n = on_off_value(n)
+    if _n == 1 then print(">aflock on<") end
+    if _n == 0 then print(">aflock off<") end
+end
+
+function camera_funcs.set_aelock(n)
+    local _n = on_off_value(n)
+    if _n == 1 then print(">aelock on<") end
+    if _n == 0 then print(">aelock off<") end
 end
 
 --camera
@@ -279,7 +353,7 @@ end
 -- return 1 or 0, depending on system clock... a quick&dirty simulation for shooting process
 -- TODO could / should base on shoot(), shoot_full etc
 function camera_funcs.get_shooting()
-    if os.date("%S")%3 == 1 then 
+    if os.date("%S")%3 == 1 then
         return true
     else
         return false
@@ -334,8 +408,9 @@ function camera_funcs.set_led(n, s)
 end
 
 function camera_funcs.set_backlight(n)
-    if n == 1 then print(">Backlight on<") end
-    if n == 0 then print(">Backlight off<") end
+    local _n = on_off_value(n)
+    if _n == 1 then print(">Backlight on<") end
+    if _n == 0 then print(">Backlight off<") end
 end
 
 function camera_funcs.get_mode()
@@ -343,10 +418,11 @@ function camera_funcs.get_mode()
 end
 
 function camera_funcs.set_record(n)
-    if n == 1  or n == true then
+    local _n = on_off_value(n)
+    if _n == 1 then
         camera_state.rec = true
         print("record mode")
-    elseif n == 0  or n == false then
+    elseif _n == 0 then
         camera_state.rec = false
         print("play mode")
     end
@@ -360,18 +436,124 @@ function camera_funcs.get_flash_mode()
     return camera_state.flash
 end
 
+function camera_funcs.get_flash_ready()
+    return 1
+end
+
 -- motion detection
 function camera_funcs.md_detect_motion()
     return 1
 end
 
 -- histogram
-function camera_funcs.shot_histo_enable(s)
-    local x=n
+function camera_funcs.shot_histo_enable(n)
+    local _n = on_off_value(n)
 end
 
 function camera_funcs.get_histo_range(n1,n2)
     return 100
+end
+
+function camera_funcs.get_usb_power()
+    return 0
+end
+
+function camera_funcs.set_config_value(id, val)
+    print("cfg id", id, "value", val)
+end
+
+function camera_funcs.save_config_file(id, file)
+    print(string.format("save cfg id='%s', file='%s'",id, file or "default"))
+    return false
+end
+
+function camera_funcs.load_config_file(id, file)
+    print(string.format("load cfg id='%s', file='%s'",id, file or "default"))
+    return false
+end
+
+function camera_funcs.get_video_button()
+    return false
+end
+
+function camera_funcs.get_focus_ok()
+    return true
+end
+
+-- chdk bit routines for lua 5.1
+local function to32bits(value)
+    if type(value) ~= "number" then
+        error "wrong argument in bit functions"
+    end
+    local bittab, neg = {}, (value < 0)
+    local val = (neg) and -(value + 1) or value
+    for i=1, 32 do
+       bittab[i] = (val % 2 == 1) and true or false
+       val = val / 2
+    end
+    if neg then 
+        for i = 1, #bittab do bittab[i] = not(bittab[i]) end
+    end
+    return bittab
+end
+
+local function from32bits(bittab)
+    local res = 0
+    for i=#bittab, 1, -1 do
+        res = 2 * res + (bittab[i] and 1 or 0) 
+    end
+    return res
+end
+
+function camera_funcs.bitand(v1, v2)
+    local v1t = to32bits(v1)
+    local v2t = to32bits(v2)
+    for i = 1, #v1t do v1t[i] = (v1t[i] and v2t[i]) end
+    return from32bits(v1t)
+end
+
+function camera_funcs.bitor(v1, v2)
+    local v1t = to32bits(v1)
+    local v2t = to32bits(v2)
+    for i = 1, #v1t do v1t[i] = (v1t[i] or v2t[i]) end
+    return from32bits(v1t)
+end
+
+function camera_funcs.bitxor(v1, v2)
+    local v1t = to32bits(v1)
+    local v2t = to32bits(v2)
+    for i = 1, #v1t do v1t[i] = (v1t[i] ~= v2t[i]) end
+    return from32bits(v1t)
+end
+
+function camera_funcs.bitshl(v1, shift)
+    local v1t = to32bits(v1)
+    for i = #v1t, 1, -1 do 
+        v1t[i] = (i - shift > 0) and v1t[i - shift] or false
+    end
+    return from32bits(v1t)
+end
+
+function camera_funcs.bitshri(v1, shift)
+    local v1t = to32bits(v1)
+    for i = 1, #v1t - 1 do 
+        v1t[i] = v1t[(i + shift <= #v1t) and i + shift or #v1t]
+    end
+    return from32bits(v1t)
+end
+
+function camera_funcs.bitshru(v1, shift)
+    local v1t = to32bits(v1)
+    for i = 1, #v1t do 
+        v1t[i] = (i + shift <= #v1t) and v1t[i + shift] or false
+    end
+    return from32bits(v1t)
+end
+
+function camera_funcs.bitnot(v1)
+    local v1t = to32bits(v1)
+    for i = 1, #v1t do v1t[i] = not(v1t[i]) end
+    return from32bits(v1t)
 end
 
 return camera_funcs

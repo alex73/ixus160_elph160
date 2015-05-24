@@ -18,7 +18,7 @@
 #include "module_def.h"
 
 //-------------------------------------------------------------------
-Conf conf = {CONF_VERSION};
+Conf conf;
 
 // reyalp: putting these in conf, since the conf values are lookups for them
 // prefixes and extentions available for raw images (index with conf.raw_prefix etc)
@@ -164,20 +164,20 @@ static ConfInfo osd_conf_info[] = {
     CONF_INFO2( 36, conf.usb_info_pos,                          CONF_OSD_POS,   95,0),
 
     // Keep these together
-    CONF_INFO( 50, conf.histo_color,                            CONF_DEF_VALUE, cl:MAKE_COLOR(COLOR_GREY_DK, COLOR_WHITE)),
-    CONF_INFO( 51, conf.histo_color2,                           CONF_DEF_VALUE, cl:MAKE_COLOR(COLOR_RED, COLOR_WHITE)),
-    CONF_INFO( 52, conf.osd_color,                              CONF_DEF_VALUE, cl:MAKE_COLOR(COLOR_GREY_DK_TRANS, COLOR_WHITE)),
-    CONF_INFO( 53, conf.osd_color_warn,                         CONF_DEF_VALUE, cl:MAKE_COLOR(COLOR_GREY_DK_TRANS, COLOR_RED)),
-    CONF_INFO( 54, conf.osd_color_override,                     CONF_DEF_VALUE, cl:MAKE_COLOR(COLOR_GREY_DK_TRANS, COLOR_RED)),
-    CONF_INFO( 55, conf.menu_color,                             CONF_DEF_VALUE, cl:MAKE_COLOR(COLOR_GREY_DK, COLOR_WHITE)),
-    CONF_INFO( 56, conf.menu_title_color,                       CONF_DEF_VALUE, cl:MAKE_COLOR(COLOR_WHITE, COLOR_BLACK)),
-    CONF_INFO( 57, conf.menu_cursor_color,                      CONF_DEF_VALUE, cl:CAM_DEFAULT_MENU_CURSOR),
-    CONF_INFO( 58, conf.menu_symbol_color,                      CONF_DEF_VALUE, cl:MAKE_COLOR(COLOR_GREY_DK, COLOR_WHITE)),
-    CONF_INFO( 59, conf.reader_color,                           CONF_DEF_VALUE, cl:MAKE_COLOR(COLOR_GREY, COLOR_WHITE)),
-    CONF_INFO( 60, conf.grid_color,                             CONF_DEF_VALUE, cl:MAKE_COLOR(COLOR_GREY_DK, COLOR_WHITE)),
-    CONF_INFO( 61, conf.space_color,                            CONF_DEF_VALUE, cl:MAKE_COLOR(COLOR_GREY_DK_TRANS, COLOR_WHITE)),
-    CONF_INFO( 62, conf.zebra_color,                            CONF_DEF_VALUE, cl:MAKE_COLOR(COLOR_RED, COLOR_RED)),
-    CONF_INFO( 63, conf.edge_overlay_color,                     CONF_DEF_VALUE, cl:MAKE_COLOR(COLOR_RED, COLOR_RED)),
+    CONF_INFOC( 50, conf.histo_color,                           CONF_DEF_VALUE, IDX_COLOR_GREY_DK,IDX_COLOR_WHITE,1,1),
+    CONF_INFOC( 51, conf.histo_color2,                          CONF_DEF_VALUE, IDX_COLOR_RED,IDX_COLOR_WHITE,1,1),
+    CONF_INFOC( 52, conf.osd_color,                             CONF_DEF_VALUE, IDX_COLOR_GREY_DK_TRANS,IDX_COLOR_WHITE,1,1),
+    CONF_INFOC( 53, conf.osd_color_warn,                        CONF_DEF_VALUE, IDX_COLOR_GREY_DK_TRANS,IDX_COLOR_RED,1,1),
+    CONF_INFOC( 54, conf.osd_color_override,                    CONF_DEF_VALUE, IDX_COLOR_GREY_DK_TRANS,IDX_COLOR_RED,1,1),
+    CONF_INFOC( 55, conf.menu_color,                            CONF_DEF_VALUE, IDX_COLOR_GREY_DK,IDX_COLOR_WHITE,1,1),
+    CONF_INFOC( 56, conf.menu_title_color,                      CONF_DEF_VALUE, IDX_COLOR_WHITE,IDX_COLOR_BLACK,1,1),
+    CONF_INFOC( 57, conf.menu_cursor_color,                     CONF_DEF_VALUE, CAM_DEFAULT_MENU_CURSOR_BG,CAM_DEFAULT_MENU_CURSOR_FG,1,1),
+    CONF_INFOC( 58, conf.menu_symbol_color,                     CONF_DEF_VALUE, IDX_COLOR_GREY_DK,IDX_COLOR_WHITE,1,1),
+    CONF_INFOC( 59, conf.reader_color,                          CONF_DEF_VALUE, IDX_COLOR_GREY,IDX_COLOR_WHITE,1,1),
+    CONF_INFOC( 60, conf.grid_color,                            CONF_DEF_VALUE, IDX_COLOR_GREY_DK,IDX_COLOR_WHITE,1,1),
+    CONF_INFOC( 61, conf.space_color,                           CONF_DEF_VALUE, IDX_COLOR_GREY_DK_TRANS,IDX_COLOR_WHITE,1,1),
+    CONF_INFOC( 62, conf.zebra_color,                           CONF_DEF_VALUE, IDX_COLOR_RED,IDX_COLOR_RED,1,1),
+    CONF_INFOC( 63, conf.edge_overlay_color,                    CONF_DEF_VALUE, 0,IDX_COLOR_RED,0,1),
 
     CONF_INFO( 80, conf.show_clock,                             CONF_DEF_VALUE, i:2),
     CONF_INFO( 81, conf.clock_format,                           CONF_DEF_VALUE, i:0),
@@ -368,7 +368,6 @@ static ConfInfo conf_info[] = {
     CONF_INFO( 43, conf.dng_crop_size,                          CONF_DEF_VALUE, i:0),
 
     CONF_INFO( 50, conf.script_shoot_delay,                     CONF_DEF_VALUE, i:0),
-    CONF_INFO( 51, conf.script_vars,                            CONF_INT_PTR,   i:0),
     CONF_INFO( 52, conf.script_param_set,                       CONF_DEF_VALUE, i:0),
     CONF_INFO( 53, conf.script_startup,                         CONF_DEF_VALUE, i:SCRIPT_AUTOSTART_NONE),
     CONF_INFO( 54, conf.script_file,                            CONF_CHAR_PTR,  ptr:""),
@@ -488,6 +487,8 @@ static ConfInfo conf_info[] = {
 
     CONF_INFO(240, conf.allow_unsafe_io,                        CONF_DEF_VALUE, i:0),
 
+    CONF_INFO(250, conf.disable_lfn_parser,                     CONF_DEF_VALUE, i:0),
+
     CONF_INFO(999, conf.script_allow_lua_native_calls,          CONF_DEF_VALUE, i:0),
 
     {0,0,0,0,{0}}
@@ -523,9 +524,7 @@ void conf_info_func(unsigned short id)
         set_usb_remote_state();
         break;
     case 220:
-#if CAM_ADJUSTABLE_ALT_BUTTON
-        kbd_set_alt_mode_key_mask(conf.alt_mode_button);
-#else
+#ifndef CAM_ADJUSTABLE_ALT_BUTTON
         conf.alt_mode_button = KEY_PRINT;
 #endif
         break;
@@ -540,18 +539,18 @@ static ConfInfo gps_conf_info[] = {
     // GPS
     CONF_INFO(  1, conf.gps_record,                 CONF_DEF_VALUE,     i:0),
     CONF_INFO(  2, conf.gps_navi_show,              CONF_DEF_VALUE,     i:0),
-    CONF_INFO(  3, conf.gps_kompass_show,           CONF_DEF_VALUE,     i:0),
+    CONF_INFO(  3, conf.gps_compass_show,           CONF_DEF_VALUE,     i:0),
     CONF_INFO(  4, conf.gps_coordinates_show,       CONF_DEF_VALUE,     i:0),
     CONF_INFO(  5, conf.gps_height_show,            CONF_DEF_VALUE,     i:0),
     CONF_INFO(  6, conf.gps_waypoint_save,          CONF_DEF_VALUE,     i:0),
     CONF_INFO(  7, conf.gps_track_time,             CONF_DEF_VALUE,     i:1),
-    CONF_INFO(  8, conf.gps_kompass_hide,           CONF_DEF_VALUE,     i:0),
+    CONF_INFO(  8, conf.gps_compass_hide,           CONF_DEF_VALUE,     i:0),
 
     CONF_INFO(  9, conf.gps_wait_for_signal,        CONF_DEF_VALUE,     i:300),
-    CONF_INFO( 10, conf.gps_kompass_time,           CONF_DEF_VALUE,     i:1),
+    CONF_INFO( 10, conf.gps_compass_time,           CONF_DEF_VALUE,     i:1),
     CONF_INFO( 11, conf.gps_navi_time,              CONF_DEF_VALUE,     i:1),
     CONF_INFO( 12, conf.gps_wait_for_signal_time,   CONF_DEF_VALUE,     i:5),
-    CONF_INFO( 13, conf.gps_kompass_smooth,         CONF_DEF_VALUE,     i:7),
+    CONF_INFO( 13, conf.gps_compass_smooth,         CONF_DEF_VALUE,     i:7),
     CONF_INFO( 14, conf.gps_batt,                   CONF_DEF_VALUE,     i:25),
     CONF_INFO( 15, conf.gps_countdown,              CONF_DEF_VALUE,     i:0),
     CONF_INFO( 16, conf.gps_2D_3D_fix,              CONF_DEF_VALUE,     i:2),
@@ -616,7 +615,7 @@ static short conf_map_1_2[] =
     1020, // 2 conf.save_raw
     1050, // 3 conf.script_shoot_delay
     1060, // 4 conf.show_histo
-    1051, // 5 conf.script_vars
+    0,
     1052, // 6 conf.script_param_set
     2150, // 7 conf.show_dof
     2100, // 8 conf.batt_volts_max
@@ -866,17 +865,17 @@ static short conf_map_1_2[] =
     1091, // 252 conf.ext_video_time
     4001, // 253 conf.gps_record
     4002, // 254 conf.gps_navi_show
-    4003, // 255 conf.gps_kompass_show
+    4003, // 255 conf.gps_compass_show
     4004, // 256 conf.gps_coordinates_show
     4005, // 257 conf.gps_height_show
     4006, // 258 conf.gps_waypoint_save
     4007, // 259 conf.gps_track_time
-    4008, // 260 conf.gps_kompass_hide
+    4008, // 260 conf.gps_compass_hide
     4009, // 261 conf.gps_wait_for_signal
-    4010, // 262 conf.gps_kompass_time
+    4010, // 262 conf.gps_compass_time
     4011, // 263 conf.gps_navi_time
     4012, // 264 conf.gps_wait_for_signal_time
-    4013, // 265 conf.gps_kompass_smooth
+    4013, // 265 conf.gps_compass_smooth
     4014, // 266 conf.gps_batt
     4015, // 267 conf.gps_countdown
     4016, // 268 conf.gps_2D_3D_fix
@@ -1180,7 +1179,7 @@ void config_restore(ConfInfo *ci, const char *filename, void (*info_func)(unsign
                                 tVarArrayConfig *cfg = (tVarArrayConfig*)(ci[i].var);
                                 size = cfg->load(buf+offs);
                             }
-                            else
+                            else if (ci[i].size == size)    // only restore if size matches
                             {
                                 memcpy(ci[i].var, buf+offs, size);
                             }
@@ -1338,13 +1337,14 @@ static int findConfInfo(ConfInfo *ci, unsigned short id)
 void resetColors()
 {
     int i, n;
+
     // Iterate over color override ID's
     for (n=COLOR_FIRST_OVERRIDE; n<=COLOR_LAST_OVERRIDE; n++)
     {
         i = findConfInfo(osd_conf_info, n);
         if (i != -1)
         {
-            *((color*)osd_conf_info[i].var) = osd_conf_info[i].cl;
+            *((confColor*)osd_conf_info[i].var) = osd_conf_info[i].cl;
         }
     }
 }
@@ -1429,7 +1429,7 @@ int conf_getValue(unsigned short id, tConfigVal* configVal)
 //-------------------------------------------------------------------
 static int config_autosave = 1;
 
-static int setValue(ConfInfo *ci, unsigned short id, tConfigVal configVal)
+static int setValue(ConfInfo *ci, unsigned short id, tConfigVal configVal, void (*info_func)(unsigned short id))
 {
     int i;
     int ret = CONF_EMPTY, len, len2;
@@ -1478,7 +1478,7 @@ static int setValue(ConfInfo *ci, unsigned short id, tConfigVal configVal)
                 if( configVal.isStr )
                 {
                     len = strlen(configVal.str);
-                    if( len>0 && len<CONF_STR_LEN)
+                    if (len<CONF_STR_LEN)
                     {
                         strncpy(ci[i].var, configVal.str ,len+1);
                     }
@@ -1497,8 +1497,15 @@ static int setValue(ConfInfo *ci, unsigned short id, tConfigVal configVal)
         }
     }
 
-    if ((ret!=CONF_EMPTY) && (config_autosave))
-        conf_save();
+    if (ret != CONF_EMPTY)
+    {
+        // Perform an updates required on change of value
+        if (info_func)
+            info_func(id);
+        // Save config file is autosave enabled
+        if (config_autosave)
+            conf_save();
+    }
 
     return ret;
 }
@@ -1512,7 +1519,7 @@ int conf_setValue(unsigned short id, tConfigVal configVal)
 
     for (i=0; confinfo_handlers[i].ci != 0; i++)
         if ((id >= confinfo_handlers[i].start_id) && (id <= confinfo_handlers[i].end_id))
-            return setValue(confinfo_handlers[i].ci, id - confinfo_handlers[i].start_id, configVal);
+            return setValue(confinfo_handlers[i].ci, id - confinfo_handlers[i].start_id, configVal, confinfo_handlers[i].info_func);
 
     return CONF_EMPTY;
 }
@@ -1556,13 +1563,13 @@ int is_raw_possible() {
        || (m == MODE_AUTO)                   // some cameras don't have valid raw in auto mode
 #endif
 #ifdef CAM_DISABLE_RAW_IN_ISO_3200
-       || (m == MODE_SCN_ISO_3200)           // some cameras don't have valid raw in ISO3200 binned mode, not the same as low light
+       || (m == MODE_ISO_3200)           // some cameras don't have valid raw in ISO3200 binned mode, not the same as low light
 #endif
 #ifdef CAM_DISABLE_RAW_IN_LOW_LIGHT_MODE
        || (shooting_get_resolution()==7)     // True if shooting resolution is 'low light'
 #endif
 #if defined(CAM_DISABLE_RAW_IN_HQ_BURST)
-       || (m == MODE_SCN_HIGHSPEED_BURST)    // True if HQ Burst mode (SX40HS corrupts JPEG images if RAW enabled in this mode)
+       || (m == MODE_HIGHSPEED_BURST)    // True if HQ Burst mode (SX40HS corrupts JPEG images if RAW enabled in this mode)
 #endif
 #if defined(CAM_DISABLE_RAW_IN_HANDHELD_NIGHT_SCN)
        || (m == MODE_NIGHT_SCENE)            // True if HandHeld Night Scene (SX40HS corrupts JPEG images if RAW enabled in this mode)

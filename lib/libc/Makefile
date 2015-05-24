@@ -3,22 +3,23 @@ topdir=../../
 # Makefile for platform independent 'libc' library
 # Code copied from GCC for linking modules without including GCC library
 
-SKIPPLATFORMCHECK=1
+include $(topdir)makefile_core.inc
 
-include $(topdir)makefile.inc
+OBJS = $Othumb1_case.o
 
-CFLAGS+=$(CTHUMB)
+all: $Olibc.a
 
-OBJS = thumb1_case.o
-
-all: libc.a
-
-libc.a: $(OBJS)
+$Olibc.a: $(OBJS)
 
 clean:
-	rm -f $(OBJS) libc.a
+	rm -f $O*.* *.o *.a
 
 distclean: clean
 	rm -f $(OBJS:.o=.d)
 
 include $(topdir)bottom.inc
+
+
+# Define empty recipes for source files (including the makefiles)
+# to prevent make from trying implicit rules to create them. Speeds up build process
+thumb1_case.S: ;

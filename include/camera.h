@@ -76,13 +76,15 @@
     #define CAM_EMUL_KEYPRESS_DELAY         40  // Delay to interpret <alt>-button press as longpress
     #define CAM_EMUL_KEYPRESS_DURATION      5   // Length of keypress emulation
 
-    #define CAM_MENU_BORDERWIDTH            30  // Defines the width of the border on each side of the CHDK menu. The CHDK menu will have this
+    #define CAM_MENU_BORDERWIDTH            10  // Defines the width of the border on each side of the CHDK menu. The CHDK menu will have this
                                                 // many pixels left blank to the on each side. Should not be less than 10 to allow room for the
                                                 // scroll bar on the right.
 
     #undef  CAM_TOUCHSCREEN_UI                  // Define to enable touch screen U/I (e.g. IXUS 310 HS)
     #define CAM_TS_BUTTON_BORDER            0   // Define this to leave a border on each side of the OSD display for touch screen buttons.
                                                 // Used on the IXUS 310 to stop the OSD from overlapping the on screen buttons on each side
+    #define CAM_TS_MENU_BORDER              0   // Define this to leave a border at top and bottom of menu to avoid areas where touch sensor does not work
+                                                // Used on the IXUS 310 to allow touch selection of menu entries
     #define CAM_DISP_ALT_TEXT               1   // Display the '<ALT>' message at the bottom of the screen in ALT mode (IXUS 310 changes button color instead)
 
     #undef  CAM_AF_SCAN_DURING_VIDEO_RECORD     // CHDK can make single AF scan during video record
@@ -113,7 +115,8 @@
     #define CAM_WHITE_LEVEL                 ((1<<CAM_SENSOR_BITS_PER_PIXEL)-1)      // 10bpp = 1023 ((1<<10)-1), 12bpp = 4095 ((1<<12)-1)
     #define CAM_BLACK_LEVEL                 ((1<<(CAM_SENSOR_BITS_PER_PIXEL-5))-1)  // 10bpp = 31 ((1<<5)-1),    12bpp = 127 ((1<<7)-1)
 
-    #define CAM_DEFAULT_MENU_CURSOR         MAKE_COLOR(COLOR_BLUE,COLOR_YELLOW)     // Default menu cursor colors
+    #define CAM_DEFAULT_MENU_CURSOR_BG      IDX_COLOR_BLUE      // Default menu cursor colors
+    #define CAM_DEFAULT_MENU_CURSOR_FG      IDX_COLOR_YELLOW    // Default menu cursor colors
 
     // Older cameras had a screen/bitmap buffer that was 360 pixels wide (or 480 for wide screen models)
     // CHDK was built around this 360 pixel wide display model
@@ -163,6 +166,9 @@
     #undef  CAM_FORWARDMATRIX1                  // DNG camera forward matrix 1
     #undef  CAM_FORWARDMATRIX2                  // DNG camera forward matrix 2
     #undef  CAM_DNG_EXPOSURE_BIAS               // Specify DNG exposure bias value (to override default of -0.5 in the dng.c code)
+    #undef  CAM_CALC_BLACK_LEVEL                // Set this to enable dynamic Black Level calculation from RAW sensor data
+                                                // E.G. G1X may use black = 2048 for long exposures at high ISO
+                                                // TODO: Raw Merge code does not use this - merging files with different black points may give strange results
     #undef  DNG_EXT_FROM                        // Extension in the cameras known extensions to replace with .DNG to allow DNG
                                                 // files to be transfered over standard PTP. Only applicable to older cameras
 
@@ -222,7 +228,7 @@
     #undef  CAM_USE_ALT_PT_MoveOpticalZoomAt    // Define to use the PT_MoveOpticalZoomAt() function in lens_set_zoom_point()
     #undef  CAM_USE_OPTICAL_MAX_ZOOM_STATUS     // Use ZOOM_OPTICAL_MAX to reset zoom_status when switching from digital to optical zoom in gui_std_kbd_process()
 
-    #define CAM_MARKET_ISO_BASE             100 // Base 'market' ISO value (SX40 & G1X use 200)
+    #define CAM_MARKET_ISO_BASE             100 // Base 'market' ISO value. Most (all?) DryOS R49 and later use 200, use tests/isobase.lua to check
     #undef  CAM_HAS_HI_ISO_AUTO_MODE            // Define if camera has 'HI ISO Auto' mode (as well as Auto ISO mode), needed for adjustment in user auto ISO menu 
 
     #define CAMERA_MIN_DIST         0           // Define min distance that can be set in _MoveFocusLensToDistance (allow override - e.g. G12 min dist = 1)
@@ -249,7 +255,7 @@
 
     #undef CAM_FILE_COUNTER_IS_VAR              // file counter is variable file_counter_var in stubs, not a param
     
-    #define CAM_GUI_FSELECT_SIZE  15, 7, 14     // filename, filesize, filedate camera file select window column widths
+    #define CAM_GUI_FSELECT_SIZE  20, 6, 14     // filename, filesize, filedate camera file select window column widths
 
     #undef  CAM_IS_VID_REC_WORKS                // Define if the 'is_video_recording()' function works
 
@@ -275,6 +281,19 @@
 #if !defined(CAM_FILEIO_SEM_TIMEOUT_VID)
     #define CAM_FILEIO_SEM_TIMEOUT_VID      200     // TakeSemaphore timeout - is_video_recording() == true
 #endif
+#endif
+
+// sanity check platform_camera.h defined values for some common errors
+#if (CAM_ACTIVE_AREA_X1&1) || (CAM_ACTIVE_AREA_Y1&1) || (CAM_ACTIVE_AREA_X2&1) || (CAM_ACTIVE_AREA_Y2&1)
+    #error "CAM_ACTIVE_AREA values must be even"
+#endif
+
+#if (CAM_ACTIVE_AREA_X2 - CAM_ACTIVE_AREA_X1) < CAM_JPEG_WIDTH
+    #error "CAM_JPEG_WIDTH larger than active area"
+#endif
+
+#if (CAM_ACTIVE_AREA_Y2 - CAM_ACTIVE_AREA_Y1) < CAM_JPEG_HEIGHT
+    #error "CAM_JPEG_HEIGHT larger than active area"
 #endif
 
 //==========================================================

@@ -36,7 +36,8 @@ static int          x, y;
 static int          w, wplus, num_lines;
 static int          len_bool, len_int, len_enum, len_space, len_br1, len_br2, cl_rect;
 static int          int_incr = 1;
-static unsigned char *item_color;
+static confColor    *item_color;
+static int          item_color_type;    // MENUITEM_COLOR_FG / MENUITEM_COLOR_BG
 
 //-------------------------------------------------------------------
 CMenuItem* find_menu_item(CMenu *curr_menu, int itemid )
@@ -52,13 +53,13 @@ CMenuItem* find_menu_item(CMenu *curr_menu, int itemid )
         if ( lang_strhash31(curr_menu->menu[gui_menu_curr_item].text) == itemid){
             return (CMenuItem*) &(curr_menu->menu[gui_menu_curr_item]);
         }
-        if ((curr_menu->menu[gui_menu_curr_item].type & MENUITEM_MASK) == MENUITEM_SUBMENU) {
-
-                if (curr_menu->menu[gui_menu_curr_item].text != LANG_MENU_USER_MENU) {
-                    rv = find_menu_item((CMenu*)(curr_menu->menu[gui_menu_curr_item].value), itemid);
-                    if ( rv )
-                        return rv;
-                }
+        if ((curr_menu->menu[gui_menu_curr_item].type & MENUITEM_MASK) == MENUITEM_SUBMENU)
+        {
+            if (curr_menu->menu[gui_menu_curr_item].text != LANG_MENU_USER_MENU) {
+                rv = find_menu_item((CMenu*)(curr_menu->menu[gui_menu_curr_item].value), itemid);
+                if ( rv )
+                    return rv;
+            }
         }
         gui_menu_curr_item++;
     }
@@ -222,9 +223,9 @@ void gui_menu_init(CMenu *menu_ptr) {
         set_tv_override_menu(curr_menu);
     }
 
-    num_lines = camera_screen.height/rbf_font_height()-1;
-    x = camera_screen.menu_border_width;
-    w = camera_screen.width-x-x;
+    num_lines = (camera_screen.height - camera_screen.ts_menu_border*2)/rbf_font_height()-1;
+    x = camera_screen.disp_left  + camera_screen.menu_border_width;
+    w = camera_screen.disp_width - camera_screen.menu_border_width*2;
     len_bool = rbf_str_width("\x95");
     len_int = rbf_str_width("99999");
     len_enum = rbf_str_width("WUBfS3a");
@@ -241,7 +242,7 @@ void gui_menu_init(CMenu *menu_ptr) {
 static int gui_menu_rows()
 {
     int n;
-    // Count the numer of rows in current menu
+    // Count the number of rows in current menu
     for(n = 0; curr_menu->menu[n].text; n++);
     return n;
 }
@@ -262,15 +263,23 @@ void gui_menu_cancel_redraw()
 //-------------------------------------------------------------------
 // Function passed to gui_palette_init
 // This is called when a new color is selected to update the menu / config value
-static void gui_menu_color_selected(color clr)
+static void gui_menu_color_selected(chdkColor clr)
 {
-    *item_color = FG_COLOR(clr);
+    if (item_color_type == MENUITEM_COLOR_FG)
+    {
+        item_color->fg = clr;
+    }
+    else
+    {
+        item_color->bg = clr;
+    }
     gui_menu_erase_and_redraw();
 }
 
 //-------------------------------------------------------------------
 // Return to previous menu on stack
-static void gui_menu_back() {
+void gui_menu_back()
+{
     if (gui_menu_stack_ptr > 0)
     {
         gui_menu_stack_ptr--;
@@ -306,7 +315,7 @@ static void update_int_value(const CMenuItem *mi, int direction)
     *(mi->value) += int_incr * direction;
 
     // Limit new value to defined bounds
-    if ( mi->type & MENUITEM_F_UNSIGNED)
+    if ((mi->type & MENUITEM_F_UNSIGNED) || (mi->type & MENUITEM_SD_INT))
     {
         if (*(mi->value) < 0) 
             *(mi->value) = 0;
@@ -329,10 +338,11 @@ static void update_int_value(const CMenuItem *mi, int direction)
         }
     }
 
-    if (*(mi->value) > 99999) 
-        *(mi->value) = 99999;
+    int maxval = (mi->type & MENUITEM_SD_INT) ? 9999999 : 99999;
+    if (*(mi->value) > maxval)
+        *(mi->value) = maxval;
 
-    if ( mi->type & MENUITEM_F_UNSIGNED)
+    if (mi->type & MENUITEM_F_UNSIGNED)
     {
         if ( mi->type & MENUITEM_F_MAX)
         {
@@ -342,7 +352,7 @@ static void update_int_value(const CMenuItem *mi, int direction)
     }
     else
     {
-        if ( mi->type & MENUITEM_F_MAX)
+        if (mi->type & MENUITEM_F_MAX)
         {
             if (*(mi->value) > MENU_MAX_SIGNED(mi->arg)) 
                 *(mi->value) = MENU_MAX_SIGNED(mi->arg);
@@ -392,6 +402,16 @@ static void update_enum_value(const CMenuItem *mi, int direction)
     gui_menu_redraw=1;
 }
 
+static int isText(int n)
+{
+    return (
+            (curr_menu->menu[n].type & MENUITEM_MASK) == MENUITEM_TEXT ||
+            (curr_menu->menu[n].type & MENUITEM_MASK) == MENUITEM_ERROR ||
+            (curr_menu->menu[n].type & MENUITEM_MASK) == MENUITEM_WARNING ||
+            (curr_menu->menu[n].type & MENUITEM_MASK) == MENUITEM_SEPARATOR
+           );
+}
+
 // Open a sub-menu
 void gui_activate_sub_menu(CMenu *sub_menu)
 {
@@ -404,7 +424,7 @@ void gui_activate_sub_menu(CMenu *sub_menu)
     if (conf.menu_select_first_entry)
     {
         gui_menu_set_curr_menu(sub_menu, 0, 0);
-        if ((curr_menu->menu[gui_menu_curr_item].type & MENUITEM_MASK)==MENUITEM_TEXT || (curr_menu->menu[gui_menu_curr_item].type & MENUITEM_MASK)==MENUITEM_SEPARATOR)
+        if (isText(gui_menu_curr_item))
         {
             //++gui_menu_top_item;
             ++gui_menu_curr_item;
@@ -418,7 +438,7 @@ void gui_activate_sub_menu(CMenu *sub_menu)
     // FIXME check on stack overrun;
     if (gui_menu_stack_ptr > MENUSTACK_MAXDEPTH)
     {
-        draw_txt_string(0, 0, "E1", MAKE_COLOR(COLOR_RED, COLOR_YELLOW));
+        draw_string(1, 0, "E1", MAKE_COLOR(COLOR_RED, COLOR_YELLOW));
         gui_menu_stack_ptr = 0;
     }
 
@@ -488,8 +508,7 @@ static void gui_menu_updown(int increment)
 
             // Check in case scroll moved off top of menu
             if (gui_menu_top_item < 0) gui_menu_top_item = 0;
-        } while ((curr_menu->menu[gui_menu_curr_item].type & MENUITEM_MASK)==MENUITEM_TEXT || 
-                 (curr_menu->menu[gui_menu_curr_item].type & MENUITEM_MASK)==MENUITEM_SEPARATOR);
+        } while (isText(gui_menu_curr_item));
 
         // Reset amount to increment integer values by
         int_incr = 1;
@@ -500,6 +519,26 @@ static void gui_menu_updown(int increment)
         // Redraw menu if needed
         if (gui_menu_redraw == 0) gui_menu_redraw=1;
     }
+}
+
+static int gui_menu_touch_handler(int tx, int ty)
+{
+    int h = ((count > num_lines) ? num_lines : count) * rbf_font_height();
+    if ((tx >= x) && (ty >= y) && (tx < (x + w)) && (ty < (y + h)))
+    {
+        int r = ((ty - y) / rbf_font_height()) + gui_menu_top_item;
+        if (!isText(r))
+        {
+            if (gui_menu_curr_item != r)
+            {
+                gui_menu_curr_item = r;
+                // Redraw menu if needed
+                if (gui_menu_redraw == 0) gui_menu_redraw = 1;
+            }
+            return KEY_SET;
+        }
+    }
+    return 0;
 }
 
 //-------------------------------------------------------------------
@@ -625,9 +664,15 @@ int gui_menu_kbd_process() {
                         gui_menu_back();
                         break;
                     case MENUITEM_COLOR_FG:
+                        item_color = (confColor*)(curr_menu->menu[gui_menu_curr_item].value);
+                        item_color_type = MENUITEM_COLOR_FG;
+                        libpalette->show_palette(PALETTE_MODE_SELECT, item_color->fg, gui_menu_color_selected);
+                        gui_menu_redraw=2;
+                        break;
                     case MENUITEM_COLOR_BG:
-                        item_color=((unsigned char*)(curr_menu->menu[gui_menu_curr_item].value)) + (((curr_menu->menu[gui_menu_curr_item].type & MENUITEM_MASK)==MENUITEM_COLOR_BG)?1:0);
-                        libpalette->show_palette(PALETTE_MODE_SELECT, FG_COLOR(*item_color), gui_menu_color_selected);
+                        item_color = (confColor*)(curr_menu->menu[gui_menu_curr_item].value);
+                        item_color_type = MENUITEM_COLOR_BG;
+                        libpalette->show_palette(PALETTE_MODE_SELECT, item_color->bg, gui_menu_color_selected);
                         gui_menu_redraw=2;
                         break;
                     case MENUITEM_ENUM:
@@ -647,7 +692,12 @@ int gui_menu_kbd_process() {
                 }
             }
             break;
-
+        case KEY_SHOOT_FULL:                                // run script directly from User Menu ?
+            if(    (gui_menu_curr_item >= 0) 
+                && ((curr_menu->menu[gui_menu_curr_item].type & MENUITEM_MASK) == MENUITEM_PROC)
+                &&  (curr_menu->menu[gui_menu_curr_item].value == (int *)gui_load_user_menu_script ))
+                    select_proc();
+            break;
         case KEY_ZOOM_IN:
             if (decrement_factor())
                 gui_menu_redraw = 1;
@@ -682,34 +732,30 @@ void gui_menu_draw_initial()
 { 
     count = gui_menu_rows();
 
+    y = (camera_screen.height - ((num_lines - 1) * rbf_font_height())) >> 1;
     if (count > num_lines)
     {
-        y = ((camera_screen.height-(num_lines-1)*rbf_font_height())>>1);
         wplus = 8; 
         // scrollbar background 
-        draw_filled_rect((x+w), y, (x+w)+wplus, y+num_lines*rbf_font_height()-1, MAKE_COLOR(BG_COLOR(conf.menu_color), BG_COLOR(conf.menu_color))); 
+        draw_rectangle((x+w), y, (x+w)+wplus, y+num_lines*rbf_font_height()-1, MAKE_COLOR(BG_COLOR(user_color(conf.menu_color)), BG_COLOR(user_color(conf.menu_color))), RECT_BORDER0|DRAW_FILLED);
     }
     else
     {
         wplus = 0;
         if (conf.menu_center)
         {
-            y = (camera_screen.height-(count-1)*rbf_font_height())>>1; 
-        }
-        else
-        {
-            y = ((camera_screen.height-(num_lines-1)*rbf_font_height())>>1);  
+            y = (camera_screen.height - ((count - 1) * rbf_font_height())) >> 1;
         }
     }
 
-    rbf_draw_menu_header(x, y-rbf_font_height(), w+wplus, (conf.menu_symbol_enable)?curr_menu->symbol:0, lang_str(curr_menu->title), conf.menu_title_color);
+    rbf_draw_menu_header(x, y-rbf_font_height(), w+wplus, (conf.menu_symbol_enable)?curr_menu->symbol:0, lang_str(curr_menu->title), user_color(conf.menu_title_color));
 }
 
 //-------------------------------------------------------------------
 
 // Local variables used by menu draw functions
 static int imenu, yy, xx, symbol_width;
-static color cl, cl_symbol;
+static twoColors cl, cl_symbol;
 
 // Common code extracted from gui_menu_draw for displaying the symbol on the left
 static void gui_menu_draw_symbol(int num_symbols)
@@ -793,14 +839,17 @@ static char tbuf[64];
 
 // Convert an int value to a display string, adjust position of '-' for negative values to
 // not clash with int_incr 'cursor' position
-static void get_int_disp_string(int value)
+static void get_int_disp_string(int value, int dlen)
 {
-    sprintf(tbuf, "%5d", value);
+    if (dlen == 6)
+        sprintf(tbuf, "%7d", value);
+    else
+        sprintf(tbuf, "%5d", value);
     if (value < 0)
     {
         int spos, cpos;
         for (spos=0; spos<5; spos++) if (tbuf[spos] == '-') break;
-        cpos = 4 - factor_disp_len();
+        cpos = dlen - factor_disp_len();
         if ((cpos > 0) && (cpos <= spos))
         {
             tbuf[spos] = ' ';
@@ -836,8 +885,8 @@ static void gui_menu_draw_state_value(CMenuItem *c)
     switch (c[0].type & MENUITEM_MASK)
     {
     case MENUITEM_INT:
-        get_int_disp_string(*(c[0].value));
-        gui_set_int_cursor(4);
+        get_int_disp_string(*(c[0].value), (c[0].type & MENUITEM_SD_INT)?6:4);
+        gui_set_int_cursor((c[0].type & MENUITEM_SD_INT)?6:4);
         ch = tbuf;
         break;
     case MENUITEM_ENUM:
@@ -892,6 +941,14 @@ static void gui_menu_draw_state_value(CMenuItem *c)
 }
 
 //-------------------------------------------------------------------
+static void menu_text(color c)
+{
+    twoColors save = cl;
+    cl = MAKE_COLOR(BG_COLOR(cl), c);
+    gui_menu_draw_text(lang_str(curr_menu->menu[imenu].text),1);
+    cl = save;
+}
+
 void gui_menu_draw(int enforce_redraw)
 {
     int i, j;
@@ -909,18 +966,18 @@ void gui_menu_draw(int enforce_redraw)
 
         for (imenu=gui_menu_top_item, i=0, yy=y; curr_menu->menu[imenu].text && i<num_lines; ++imenu, ++i, yy+=rbf_font_height())
         {
-            cl = (gui_menu_curr_item==imenu)?conf.menu_cursor_color:conf.menu_color;
+            cl = user_color((gui_menu_curr_item==imenu) ? conf.menu_cursor_color : conf.menu_color);
             /*
             * When cursor is over a symbol, force symbol background color to be the menu cursor color but
             * keep the symbol color user defined.
             * old method was to set the symbol color to the symbol background color when the cursor highlighted it.
             * This method allows the user to have any symbol color and background color they want with the restriction
             * that the symbol background color will match the rest of the line when the cursor highlights it.
-            * It creates a nice consistent look expecially when the symbol color matches the menu text color.
+            * It creates a nice consistent look especially when the symbol color matches the menu text color.
             * without this mod, there is no way to ever make the symbol color match the color of the rest of text menu line
             * when the cursor highlights a line.
             */
-            cl_symbol = (gui_menu_curr_item==imenu)?MAKE_COLOR(BG_COLOR(cl),FG_COLOR(conf.menu_symbol_color)):conf.menu_symbol_color; //color 8Bit=Hintergrund 8Bit=Vordergrund
+            cl_symbol = (gui_menu_curr_item==imenu) ? MAKE_COLOR(BG_COLOR(cl),FG_COLOR(user_color(conf.menu_symbol_color))) : user_color(conf.menu_symbol_color); //color 8Bit=Hintergrund 8Bit=Vordergrund
 
             xx = x;
 
@@ -933,8 +990,8 @@ void gui_menu_draw(int enforce_redraw)
                 gui_menu_draw_value((*(curr_menu->menu[imenu].value))?"\x95":" ", len_bool);
                 break;
             case MENUITEM_INT:
-                get_int_disp_string(*(curr_menu->menu[imenu].value));
-                gui_menu_draw_value(tbuf, len_int);
+                get_int_disp_string(*(curr_menu->menu[imenu].value), (curr_menu->menu[imenu].type & MENUITEM_SD_INT)?6:4);
+                gui_menu_draw_value(tbuf, (curr_menu->menu[imenu].type & MENUITEM_SD_INT)?len_enum:len_int);
                 break;
             case MENUITEM_SUBMENU_PROC:
             case MENUITEM_SUBMENU:
@@ -944,6 +1001,12 @@ void gui_menu_draw(int enforce_redraw)
             case MENUITEM_UP:
                 sprintf(tbuf, "%s%s", (conf.menu_symbol_enable)?"":"<- ", lang_str(curr_menu->menu[imenu].text));
                 gui_menu_draw_text(tbuf,1);
+                break;
+            case MENUITEM_ERROR:
+                menu_text(COLOR_RED);
+                break;
+            case MENUITEM_WARNING:
+                menu_text(COLOR_YELLOW_DK);
                 break;
             case MENUITEM_PROC:
             case MENUITEM_TEXT:
@@ -962,9 +1025,9 @@ void gui_menu_draw(int enforce_redraw)
 
                 if (xx > (x + len_space))
                 {
-                    draw_filled_rect(x+len_space, yy, xx-1, yy+rbf_font_height()/2-1, MAKE_COLOR(BG_COLOR(cl), BG_COLOR(cl)));
-                    draw_line(x+len_space, yy+rbf_font_height()/2, xx-1, yy+rbf_font_height()/2, cl);
-                    draw_filled_rect(x+len_space, yy+rbf_font_height()/2+1, xx-1, yy+rbf_font_height()-1, MAKE_COLOR(BG_COLOR(cl), BG_COLOR(cl)));
+                    draw_rectangle(x+len_space, yy, xx-1, yy+rbf_font_height()/2-1, MAKE_COLOR(BG_COLOR(cl), BG_COLOR(cl)), RECT_BORDER0|DRAW_FILLED);
+                    draw_line(x+len_space, yy+rbf_font_height()/2, xx-1, yy+rbf_font_height()/2, FG_COLOR(cl));
+                    draw_rectangle(x+len_space, yy+rbf_font_height()/2+1, xx-1, yy+rbf_font_height()-1, MAKE_COLOR(BG_COLOR(cl), BG_COLOR(cl)), RECT_BORDER0|DRAW_FILLED);
                 }
                 else
                 {
@@ -975,20 +1038,28 @@ void gui_menu_draw(int enforce_redraw)
 
                 if (xx < (x+w-len_space))
                 {
-                    draw_filled_rect(xx, yy, x+w-len_space-1, yy+rbf_font_height()/2-1, MAKE_COLOR(BG_COLOR(cl), BG_COLOR(cl)));
-                    draw_line(xx, yy+rbf_font_height()/2, x+w-1-len_space, yy+rbf_font_height()/2, cl);
-                    draw_filled_rect(xx, yy+rbf_font_height()/2+1, x+w-len_space-1, yy+rbf_font_height()-1, MAKE_COLOR(BG_COLOR(cl), BG_COLOR(cl)));
+                    draw_rectangle(xx, yy, x+w-len_space-1, yy+rbf_font_height()/2-1, MAKE_COLOR(BG_COLOR(cl), BG_COLOR(cl)), RECT_BORDER0|DRAW_FILLED);
+                    draw_line(xx, yy+rbf_font_height()/2, x+w-1-len_space, yy+rbf_font_height()/2, FG_COLOR(cl));
+                    draw_rectangle(xx, yy+rbf_font_height()/2+1, x+w-len_space-1, yy+rbf_font_height()-1, MAKE_COLOR(BG_COLOR(cl), BG_COLOR(cl)), RECT_BORDER0|DRAW_FILLED);
                 }
 
                 rbf_draw_char(x+w-len_space, yy, ' ', cl);
                 break;
             case MENUITEM_COLOR_FG:
-            case MENUITEM_COLOR_BG:
+                {
                 gui_menu_draw_symbol(1);
                 xx+=rbf_draw_string_len(xx, yy, w-len_space-symbol_width, lang_str(curr_menu->menu[imenu].text), cl);
-                draw_filled_round_rect(x+w-1-cl_rect-2-len_space, yy+2, x+w-1-2-len_space, yy+rbf_font_height()-1-2, 
-                    MAKE_COLOR(((*(curr_menu->menu[imenu].value))>>(((curr_menu->menu[imenu].type & MENUITEM_MASK)==MENUITEM_COLOR_BG)?8:0))&0xFF, 
-                               ((*(curr_menu->menu[imenu].value))>>(((curr_menu->menu[imenu].type & MENUITEM_MASK)==MENUITEM_COLOR_BG)?8:0))&0xFF));
+                color mc = FG_COLOR(user_color(*((confColor*)curr_menu->menu[imenu].value)));
+                draw_rectangle(x+w-1-cl_rect-2-len_space, yy+2, x+w-1-2-len_space, yy+rbf_font_height()-1-2, MAKE_COLOR(mc,mc), RECT_BORDER0|DRAW_FILLED|RECT_ROUND_CORNERS);
+                }
+                break;
+            case MENUITEM_COLOR_BG:
+                {
+                gui_menu_draw_symbol(1);
+                xx+=rbf_draw_string_len(xx, yy, w-len_space-symbol_width, lang_str(curr_menu->menu[imenu].text), cl);
+                color mc = BG_COLOR(user_color(*((confColor*)curr_menu->menu[imenu].value)));
+                draw_rectangle(x+w-1-cl_rect-2-len_space, yy+2, x+w-1-2-len_space, yy+rbf_font_height()-1-2, MAKE_COLOR(mc,mc), RECT_BORDER0|DRAW_FILLED|RECT_ROUND_CORNERS);
+                }
                 break;
             case MENUITEM_ENUM:
                 if (curr_menu->menu[imenu].value)
@@ -1013,9 +1084,9 @@ void gui_menu_draw(int enforce_redraw)
             j = i*num_lines/count;                          // bar height
             if (j<20) j=20;
             i = (i-j)*((gui_menu_curr_item<0)?0:gui_menu_curr_item)/(count-1);   // top pos
-            draw_filled_round_rect((x+w)+2, y+1,   (x+w)+6, y+1+i,                             MAKE_COLOR(COLOR_BLACK, COLOR_BLACK));
-            draw_filled_round_rect((x+w)+2, y+i+j, (x+w)+6, y+num_lines*rbf_font_height()-1-1, MAKE_COLOR(COLOR_BLACK, COLOR_BLACK));
-            draw_filled_round_rect((x+w)+2, y+1+i, (x+w)+6, y+i+j,                             MAKE_COLOR(COLOR_WHITE, COLOR_WHITE));
+            draw_rectangle((x+w)+2, y+1,   (x+w)+6, y+1+i,                             MAKE_COLOR(COLOR_BLACK, COLOR_BLACK), RECT_BORDER0|DRAW_FILLED|RECT_ROUND_CORNERS);
+            draw_rectangle((x+w)+2, y+i+j, (x+w)+6, y+num_lines*rbf_font_height()-1-1, MAKE_COLOR(COLOR_BLACK, COLOR_BLACK), RECT_BORDER0|DRAW_FILLED|RECT_ROUND_CORNERS);
+            draw_rectangle((x+w)+2, y+1+i, (x+w)+6, y+i+j,                             MAKE_COLOR(COLOR_WHITE, COLOR_WHITE), RECT_BORDER0|DRAW_FILLED|RECT_ROUND_CORNERS);
         }
     }
 }
@@ -1040,5 +1111,5 @@ void gui_menu_kbd_process_menu_btn()
 
 //-------------------------------------------------------------------
 // GUI handler for menus
-gui_handler menuGuiHandler = { GUI_MODE_MENU, gui_menu_draw, gui_menu_kbd_process, gui_menu_kbd_process_menu_btn, 0 };
+gui_handler menuGuiHandler = { GUI_MODE_MENU, gui_menu_draw, gui_menu_kbd_process, gui_menu_kbd_process_menu_btn, gui_menu_touch_handler, 0 };
 //-------------------------------------------------------------------

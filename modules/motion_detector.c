@@ -681,7 +681,7 @@ void md_draw_grid()
             {
                 int diff = motion_detector.diff[i];
 
-                color c = MAKE_COLOR(COLOR_TRANSPARENT, COLOR_REC_GREEN);
+                twoColors c = MAKE_COLOR(COLOR_TRANSPARENT, COLOR_GREEN);
                 if (diff > motion_detector.threshold)
                 {
                     c = MAKE_COLOR(COLOR_TRANSPARENT, COLOR_RED);
@@ -695,7 +695,7 @@ void md_draw_grid()
 
                 if (motion_detector.draw_grid & 1)
                 {
-                    draw_rect(x_start+2, y_start+2, x_end-2, y_end-2, c);
+                    draw_rectangle(x_start+2, y_start+2, x_end-2, y_end-2, c, RECT_BORDER1);
                 }
             }
         }
@@ -748,8 +748,8 @@ ModuleInfo _module_info =
     ANY_CHDK_BRANCH, 0, OPT_ARCHITECTURE,			// Requirements of CHDK version
     ANY_PLATFORM_ALLOWED,		// Specify platform dependency
 
-    (int32_t)"Motion Detect",   // Module name
     (int32_t)"Motion Detect",
+    MTYPE_EXTENSION,
 
     &_libmotiondetect.base,
 

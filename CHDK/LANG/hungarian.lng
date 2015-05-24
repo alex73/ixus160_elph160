@@ -130,8 +130,6 @@
  99 "Auto görgetés"
 100 "Görgetés késleltetés (s)"
 
-101 "Játékok"
-
 102 "Reversi"
 103 "Sokoban"
 
@@ -630,8 +628,8 @@
 532 "A gép %02d másodperc múlva kikapcsol!"
 533 "Automatikus kikapcsolás leállítva!"
 534 "GPS-re várakozás eddig: %01d:%02d"
-535 "Haza-navigálás nem lehetséges!"
-536 "Fotóhoz navigálás nem lehetséges: %s!"
+535 "Haza-navigálás\n nem lehetséges!"
+536 "Fotóhoz navigálás\n nem lehetséges: %s!"
 537 "Távolság:    = %i m"
 538 "Idötartam:   = %i:%i:%i"
 539 "Sebesség:    = %s km/h"
@@ -714,7 +712,6 @@
 597 "Modul hozzáadása"
 598 "Menüpont eltávolítása"
 
-599 "EyeFi"
 600 "EyeFi müveletek"
 601 "Elérhetö hálózatok"
 602 "Beállított hálózatok"

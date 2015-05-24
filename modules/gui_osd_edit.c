@@ -64,10 +64,10 @@ void gui_osd_draw()
         if ( yscale == 0) yscale = 1 ;
         for (i=1; i<=2; ++i)
         {
-            draw_rect((osd[curr_item].pos->x>=i)?osd[curr_item].pos->x-i:0, (osd[curr_item].pos->y>=i)?osd[curr_item].pos->y-i:0, 
-                      (osd[curr_item].pos->x+(osd[curr_item].size.x)*xscale)+i-1, 
-                      (osd[curr_item].pos->y+(osd[curr_item].size.y)*yscale)+i-1,
-                      COLOR_GREEN);
+            draw_rectangle((osd[curr_item].pos->x>=i)?osd[curr_item].pos->x-i:0, (osd[curr_item].pos->y>=i)?osd[curr_item].pos->y-i:0,
+                           (osd[curr_item].pos->x+(osd[curr_item].size.x)*xscale)+i-1,
+                           (osd[curr_item].pos->y+(osd[curr_item].size.y)*yscale)+i-1,
+                           MAKE_COLOR(COLOR_GREEN,COLOR_GREEN), RECT_BORDER1);
         }
         sprintf(osd_buf, " %s:  x:%d y:%d s:%d f:%d:%d ", lang_str(osd[curr_item].title), osd[curr_item].pos->x, osd[curr_item].pos->y, step, xscale, yscale);
         draw_string(0, (osd[curr_item].pos->x<strlen(osd_buf)*FONT_WIDTH+4 && osd[curr_item].pos->y<FONT_HEIGHT+4)?camera_screen.height-FONT_HEIGHT:0,
@@ -157,6 +157,9 @@ int gui_osd_kbd_process()
             curr_item = 0;
         osd_to_draw = 1;
         break;
+    // many current cams don't have a display button.
+    // Add video as another option, since modules have no way to determine available keys
+    case KEY_VIDEO:
     case KEY_DISPLAY:
         step=(step==1)?10:1;
         osd_to_draw = 1;
@@ -187,7 +190,7 @@ void gui_osd_menu_kbd_process()
 gui_handler layoutGuiHandler =
 {
     // THIS IS OSD LAYOUT EDITOR
-    GUI_MODE_OSD, gui_osd_draw, gui_osd_kbd_process, gui_osd_menu_kbd_process, GUI_MODE_FLAG_NODRAWRESTORE
+    GUI_MODE_OSD, gui_osd_draw, gui_osd_kbd_process, gui_osd_menu_kbd_process, 0, GUI_MODE_FLAG_NODRAWRESTORE
 };
 
 // =========  MODULE INIT =================
@@ -238,8 +241,8 @@ ModuleInfo _module_info =
     ANY_CHDK_BRANCH, 0, OPT_ARCHITECTURE,			// Requirements of CHDK version
     ANY_PLATFORM_ALLOWED,		// Specify platform dependency
 
-    (int32_t)"OSD Editor",		// Module name
-    0,
+    (int32_t)"OSD Editor",
+    MTYPE_EXTENSION,
 
     &_librun.base,
 

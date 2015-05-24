@@ -1,23 +1,25 @@
 #include "platform.h"
 
+
+
 // Just iterate over and compare to determine correct values
 const CapturemodeMap modemap[] = {
-    { MODE_SCN_PORTRAIT,        32790 },
+    { MODE_PORTRAIT,        32790 },
     { MODE_P,                   32773 },
-    { MODE_SCN_LONG_SHUTTER,    32775 },
+    { MODE_LONG_SHUTTER,    32775 },
     { MODE_AUTO,                32768 },
-    { MODE_SCN_LOWLIGHT,        32813 },
+    { MODE_LOWLIGHT,        32813 },
     { MODE_DIGITAL_IS,          33347 },
-    { MODE_SCN_FACE_SELF_TIMER, 33332 },
-    { MODE_SCN_FISHEYE,         33335 },
-    { MODE_SCN_TOY_CAMERA,      33339 },
-    { MODE_SCN_MONOCHROME,      33343 },
+    { MODE_FACE_SELF_TIMER, 33332 },
+    { MODE_FISHEYE,         33335 },
+    { MODE_TOY_CAMERA,      33339 },
+    { MODE_MONOCHROME,      33343 },
     { MODE_LIVE,                33345 },
-    { MODE_SCN_SUPER_VIVID,     33330 },
-    { MODE_SCN_POSTER_EFFECT,   33331 },
-    { MODE_SCN_MINIATURE,       33336 },
-    { MODE_SCN_SNOW,            32798 },
-    { MODE_SCN_FIREWORK,        32800 },
+    { MODE_SUPER_VIVID,     33330 },
+    { MODE_POSTER_EFFECT,   33331 },
+    { MODE_MINIATURE,       33336 },
+    { MODE_SNOW,            32798 },
+    { MODE_FIREWORK,        32800 },
 } ;
 
 //To do: copied from ixus140

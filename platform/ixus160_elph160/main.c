@@ -57,6 +57,7 @@ int get_zoom_x(int zp) {
 
 long get_vbatt_min()
 {
+
     return 3250; // tested
 }
 

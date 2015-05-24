@@ -72,36 +72,35 @@ void console_clear()
         console_redraw();
 }
 
-void console_draw()
+void console_draw(int force_redraw)
 {
     char buf[MAX_CONSOLE_LINE_LENGTH+1];
 
     console_ensure_inited();
 
+    twoColors col = user_color(conf.osd_color);
+
     long t = get_tick_count();
-    if (t <= console_last_modified + (conf.console_timeout*1000))
+    if (t <= console_last_modified + (conf.console_timeout*1000))               // Redraw if changed
     {
-        int y = (console_y + console_max_lines - 1) * FONT_HEIGHT;
-        int x = console_x * FONT_WIDTH + camera_screen.ts_button_border;
-
-        int c, i;
-        for (c = 0, i = console_cur_line; c < console_num_lines; ++c, --i)
+        if ((console_displayed == 0) || force_redraw)
         {
-            if (i < 0) i = MAX_CONSOLE_HISTORY-1;
-            strncpy(buf,console_buf[i],console_line_length);
-            buf[console_line_length] = 0;
-            draw_string(x, y - c * FONT_HEIGHT, buf, conf.osd_color);
+            int y = (console_y + console_max_lines - 1) * FONT_HEIGHT;
+            int x = console_x * FONT_WIDTH + camera_screen.disp_left;
 
-            int l = strlen(buf);
-            if (l < console_line_length)
-                draw_filled_rect(x + l * FONT_WIDTH, y - c * FONT_HEIGHT,
-                                 x + console_line_length * FONT_WIDTH - 1, y - c * FONT_HEIGHT + FONT_HEIGHT - 1,
-                                 MAKE_COLOR(BG_COLOR(conf.osd_color), BG_COLOR(conf.osd_color)));
+            int c, i;
+            for (c = 0, i = console_cur_line; c < console_num_lines; ++c, --i)
+            {
+                if (i < 0) i = MAX_CONSOLE_HISTORY-1;
+                strncpy(buf,console_buf[i],console_line_length);
+                buf[console_line_length] = 0;
+                draw_string_justified(x, y - c * FONT_HEIGHT, buf, col, 0, console_line_length * FONT_WIDTH, TEXT_LEFT|TEXT_FILL);
 
-            console_displayed = 1;
+                console_displayed = 1;
+            }
         }
     }
-    else if (console_displayed)
+    else if (console_displayed && !camera_info.state.state_kbd_script_run)      // Erase if drawn and script not running
     {
         gui_set_need_restore();
         console_displayed = 0;
@@ -137,7 +136,9 @@ void console_add_line(const char *str)
             break;
         }
     } while(1);
-    
+
+    // ToDo: this should probably only be done if console_autoredraw == 0; but that breaks existing scripts (e.g. EDI.lua)
+    console_displayed = 0;
     console_last_modified = get_tick_count();
 }
 
@@ -183,7 +184,8 @@ void console_set_autoredraw(int val)
 void console_redraw()
 {
     gui_set_need_restore();
-	console_last_modified = get_tick_count();
+    console_displayed = 0;
+    console_last_modified = get_tick_count();
 }
 
 //-------------------------------------------------------------------
@@ -191,7 +193,7 @@ void console_redraw()
 static void gui_console_draw();
 static int gui_console_kbd_process();
 
-static gui_handler mboxGuiHandler = { GUI_MODE_MBOX, gui_console_draw, gui_console_kbd_process, 0, 0 };
+static gui_handler mboxGuiHandler = { GUI_MODE_MBOX, gui_console_draw, gui_console_kbd_process, 0, 0, 0 };
 
 static gui_handler	    *gui_console_mode_old;
 
@@ -213,40 +215,31 @@ static void gui_console_draw()
 {
     if (console_redraw_flag)
     {
-        coord x=0, y=0;
-        int w, h, l;
+        twoColors col = user_color(conf.menu_color);
 
-        w = MAX_CONSOLE_LINE_LENGTH;
-        h = MAX_CONSOLE_DISP_LINES;
+        int w = MAX_CONSOLE_LINE_LENGTH;
+        int h = MAX_CONSOLE_DISP_LINES;
 
-        x = (camera_screen.width - w * FONT_WIDTH) >> 1;
-        y = (camera_screen.height - (h+1) * FONT_HEIGHT) >> 1;
+        coord x = (camera_screen.width - w * FONT_WIDTH) >> 1;
+        coord y = (camera_screen.height - (h+1) * FONT_HEIGHT) >> 1;
 
-        draw_filled_rect_thick(x-3, y-3, x+w*FONT_WIDTH+3, y+(h+1)*FONT_HEIGHT+2, conf.menu_color, 1); // main box
-        draw_filled_rect(x-2, y-2, x+w*FONT_WIDTH+2, y+FONT_HEIGHT+1, conf.menu_color); //title
+        draw_rectangle(x-3, y-3, x+w*FONT_WIDTH+3, y+(h+1)*FONT_HEIGHT+2, col, RECT_BORDER1|DRAW_FILLED); // main box
+        draw_rectangle(x-2, y-2, x+w*FONT_WIDTH+2, y+FONT_HEIGHT+1, col, RECT_BORDER1|DRAW_FILLED); //title
 
-        char *t = "Console - press SET to close";
-        l = strlen(t);
-        draw_string(x+((w-l)>>1)*FONT_WIDTH, y, t, conf.menu_color); //title text
+        draw_string_justified(x, y, "Console - press SET to close", col, 0, w*FONT_WIDTH, TEXT_CENTER); //title text
         y += FONT_HEIGHT + 2;
 
         int c, i;
         for (c = h-1, i = console_cur_line-console_scroll; c >= 0; --c, --i)
         {
             if (i < 0) i += MAX_CONSOLE_HISTORY;
-
-            draw_string(x-1, y + c * FONT_HEIGHT, console_buf[i], conf.menu_color);
-
-            int l = strlen(console_buf[i]);
-            if (l < w)
-                draw_filled_rect(x + l * FONT_WIDTH, y + c * FONT_HEIGHT,
-                                 x + w * FONT_WIDTH - 1, y + c * FONT_HEIGHT + FONT_HEIGHT - 1,
-                                 MAKE_COLOR(BG_COLOR(conf.menu_color), BG_COLOR(conf.menu_color)));
+            draw_string_justified(x-1, y + c * FONT_HEIGHT, console_buf[i], col, 0, w * FONT_WIDTH, TEXT_LEFT|TEXT_FILL);
         }
 
-        draw_filled_rect(x+w*FONT_WIDTH, y+((MAX_CONSOLE_HISTORY-console_scroll-h)*(h*FONT_HEIGHT))/MAX_CONSOLE_HISTORY, 
-                         x+w*FONT_WIDTH+2, y+((MAX_CONSOLE_HISTORY-console_scroll)*(h*FONT_HEIGHT))/MAX_CONSOLE_HISTORY-1, 
-                         MAKE_COLOR(COLOR_RED, COLOR_RED));
+        // Scrollbar
+        draw_rectangle(x+w*FONT_WIDTH, y+((MAX_CONSOLE_HISTORY-console_scroll-h)*(h*FONT_HEIGHT))/MAX_CONSOLE_HISTORY,
+                       x+w*FONT_WIDTH+2, y+((MAX_CONSOLE_HISTORY-console_scroll)*(h*FONT_HEIGHT))/MAX_CONSOLE_HISTORY-1,
+                       MAKE_COLOR(COLOR_RED, COLOR_RED), RECT_BORDER0|DRAW_FILLED);
 
         console_redraw_flag = 0;
     }

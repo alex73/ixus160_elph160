@@ -15,9 +15,10 @@
 void gui_game_menu_kbd_process();
 int gui_reversi_kbd_process();
 void gui_reversi_draw();
+static int gui_reversi_touch_handler(int,int);
 
 gui_handler GUI_MODE_REVERSI = 
-    /*GUI_MODE_REVERSI*/    { GUI_MODE_MODULE, gui_reversi_draw, gui_reversi_kbd_process, gui_game_menu_kbd_process, GUI_MODE_FLAG_NODRAWRESTORE };
+    /*GUI_MODE_REVERSI*/    { GUI_MODE_MODULE, gui_reversi_draw, gui_reversi_kbd_process, gui_game_menu_kbd_process, gui_reversi_touch_handler, GUI_MODE_FLAG_NODRAWRESTORE };
 
 //-------------------------------------------------------------------
 #define FIELD_EMPTY             0
@@ -194,16 +195,17 @@ static void Result() {
 
 //-------------------------------------------------------------------
 static void DrawCell(uchar x, uchar y) {
-    draw_filled_rect(field_x+cell_size*x, field_y+cell_size*y, 
-                     field_x+cell_size*(x+1), field_y+cell_size*(y+1), 
-                     (x==xPos && y==yPos)?MAKE_COLOR(SELECTED_COLOR, COLOR_RED):((x+y)&1)?MAKE_COLOR(FIELD_COLOR_WHITE, COLOR_WHITE):MAKE_COLOR(FIELD_COLOR_BLACK, COLOR_WHITE));
+    draw_rectangle(field_x+cell_size*x, field_y+cell_size*y,
+                   field_x+cell_size*(x+1), field_y+cell_size*(y+1),
+                   (x==xPos && y==yPos)?MAKE_COLOR(SELECTED_COLOR, COLOR_RED):((x+y)&1)?MAKE_COLOR(FIELD_COLOR_WHITE, COLOR_WHITE):MAKE_COLOR(FIELD_COLOR_BLACK, COLOR_WHITE),
+                   RECT_BORDER0|DRAW_FILLED);
 }
 
 //-------------------------------------------------------------------
 static void DrawMainWindow() {
     uchar x, y;
 
-    draw_filled_rect(0, 0, camera_screen.width-1, camera_screen.height-1, MAKE_COLOR(COLOR_BLACK, COLOR_BLACK));
+    draw_rectangle(camera_screen.disp_left, 0, camera_screen.disp_right, camera_screen.height-1, MAKE_COLOR(COLOR_BLACK, COLOR_BLACK), RECT_BORDER0|DRAW_FILLED);
     for (y=0; y<8; ++y) {
         for (x=0; x<8; ++x) {
             DrawCell(x, y);
@@ -228,7 +230,7 @@ static void InitMainWindow() {
     InGame=0;
 
     field_size = (camera_screen.height-2*FONT_HEIGHT-4)&0xFFF8;
-    field_x = camera_screen.ts_button_border+FONT_WIDTH+8;
+    field_x = camera_screen.disp_left+FONT_WIDTH+8;
     field_y = (camera_screen.height-field_size)>>1;
     cell_size = field_size >> 3;
 
@@ -312,23 +314,23 @@ static void redraw() {
                 case FIELD_EMPTY:
                     break;
                 case FIELD_PLAYER1:
-                    draw_filled_ellipse(field_x+cell_size*x+(cell_size>>1), field_y+cell_size*y+(cell_size>>1), 
-                                        (cell_size>>1)-4, (cell_size>>1)-4, MAKE_COLOR(MARKER_COLOR_WHITE, MARKER_COLOR_WHITE));
+                    draw_ellipse(field_x+cell_size*x+(cell_size>>1), field_y+cell_size*y+(cell_size>>1),
+                                        (cell_size>>1)-4, (cell_size>>1)-4, MARKER_COLOR_WHITE, DRAW_FILLED);
                     break;
                 case FIELD_PLAYER2:
-                    draw_filled_ellipse(field_x+cell_size*x+(cell_size>>1), field_y+cell_size*y+(cell_size>>1), 
-                                        (cell_size>>1)-4, (cell_size>>1)-4, MAKE_COLOR(MARKER_COLOR_BLACK, MARKER_COLOR_BLACK));
+                    draw_ellipse(field_x+cell_size*x+(cell_size>>1), field_y+cell_size*y+(cell_size>>1),
+                                        (cell_size>>1)-4, (cell_size>>1)-4, MARKER_COLOR_BLACK, DRAW_FILLED);
                     break;
             }
         }
     }
 
-    draw_rect(field_x+cell_size*xPos, field_y+cell_size*yPos, field_x+cell_size*(xPos+1), field_y+cell_size*(yPos+1), COLOR_RED);
+    draw_rectangle(field_x+cell_size*xPos, field_y+cell_size*yPos, field_x+cell_size*(xPos+1), field_y+cell_size*(yPos+1), MAKE_COLOR(COLOR_RED,COLOR_RED), RECT_BORDER1);
 }
 
 //-------------------------------------------------------------------
 static void redrawstatus() {
-    int x=camera_screen.ts_button_border+field_size+FONT_WIDTH*2+23, y = 25;
+    int x=camera_screen.disp_left+field_size+FONT_WIDTH*2+23, y = 25;
     if (InGame) { 
         if (CurrPlayer==FIELD_PLAYER1) { 
             draw_string(x+1, y, lang_str(LANG_REVERSI_MOVE_WHITE), MAKE_COLOR(COLOR_BLACK, COLOR_WHITE));
@@ -343,8 +345,8 @@ static void redrawstatus() {
     draw_string(x+FONT_WIDTH*(7-strlen(buf))/2, y+FONT_HEIGHT*2+8, buf, MAKE_COLOR(COLOR_BLACK, COLOR_WHITE));
     sprintf(buf, " %d ", NumPl2);
     draw_string(x+FONT_WIDTH*7+FONT_WIDTH*(7-strlen(buf))/2, y+FONT_HEIGHT*2+8, buf, MAKE_COLOR(COLOR_BLACK, COLOR_WHITE));
-    draw_rect(x-4, y-4, x+FONT_WIDTH*14+4, y+FONT_HEIGHT*3+8+4, COLOR_WHITE);
-    draw_rect(x-2, y-2, x+FONT_WIDTH*14+2, y+FONT_HEIGHT*3+8+2, COLOR_WHITE);
+    draw_rectangle(x-4, y-4, x+FONT_WIDTH*14+4, y+FONT_HEIGHT*3+8+4, MAKE_COLOR(COLOR_WHITE, COLOR_WHITE), RECT_BORDER1);
+    draw_rectangle(x-2, y-2, x+FONT_WIDTH*14+2, y+FONT_HEIGHT*3+8+2, MAKE_COLOR(COLOR_WHITE, COLOR_WHITE), RECT_BORDER1);
     draw_line(x-2, y+FONT_HEIGHT+4, x+FONT_WIDTH*14+2, y+FONT_HEIGHT+4, COLOR_WHITE);
     draw_line(x+FONT_WIDTH*7, y+FONT_HEIGHT+4, x+FONT_WIDTH*7, y+FONT_HEIGHT*3+8+2, COLOR_WHITE);
 }
@@ -396,6 +398,23 @@ int gui_reversi_kbd_process() {
     return 0;
 }
 
+static int gui_reversi_touch_handler(int sx, int sy)
+{
+    if ((sx >= field_x) && (sx < field_x+cell_size*8) && (sy >= field_y) && (sy < field_x+cell_size*8))
+    {
+        sx = (sx - field_x) / cell_size;
+        sy = (sy - field_y) / cell_size;
+        if ((sx != xPos) || (sy != yPos))
+        {
+            xPos = sx;
+            yPos = sy;
+            need_redraw = 1;
+        }
+        return KEY_SET;
+    }
+    return 0;
+}
+
 //-------------------------------------------------------------------
 void gui_reversi_draw() {
     if (need_redraw_all) {
@@ -410,7 +429,8 @@ void gui_reversi_draw() {
     }
 
     sprintf(buf, "Batt:%3d%%", get_batt_perc());
-    draw_txt_string((camera_screen.width-camera_screen.ts_button_border)/FONT_WIDTH-2-9, camera_screen.height/FONT_HEIGHT-1, buf, MAKE_COLOR(COLOR_BLACK, COLOR_WHITE));
+    draw_string_justified(camera_screen.disp_left, camera_screen.height-FONT_HEIGHT,
+                          buf, MAKE_COLOR(COLOR_BLACK, COLOR_WHITE), 0, camera_screen.disp_width-FONT_WIDTH, TEXT_RIGHT);
 
     Timer();
 }
@@ -429,7 +449,7 @@ ModuleInfo _module_info =
     ANY_PLATFORM_ALLOWED,		// Specify platform dependency
 
     -LANG_MENU_GAMES_REVERSI,	// Module name
-    (int32_t)"Game",
+    MTYPE_GAME,
 
     &_librun.base,
 

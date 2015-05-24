@@ -43,6 +43,7 @@
 #include "module_def.h"
 #include "luascript.h"
 #include "script_shoot_hook.h"
+#include "rawhookops.h"
 
 #include "../lib/lua/lualib.h"
 #include "../lib/lua/lauxlib.h"
@@ -173,16 +174,16 @@ int lua_script_error(lua_State *Lt,int runtime)
     {
         if(!*err)
         {
-            script_console_add_line( (long)"ERROR: empty error message" );
+            script_console_add_error( (long)"ERROR: empty error message" );
         }
         else
         {
-            script_console_add_line( (long)err );
+            script_console_add_error( (long)err );
         }
     }
     else
     {
-        script_console_add_line( (long)"ERROR: NULL error message" );
+        script_console_add_error( (long)"ERROR: NULL error message" );
     }
 
     if (lua_script_is_ptp)
@@ -205,7 +206,7 @@ int lua_script_error(lua_State *Lt,int runtime)
         }
     }
 
-    script_console_add_line(LANG_CONSOLE_TEXT_TERMINATED);
+    script_console_add_error(LANG_CONSOLE_TEXT_TERMINATED);
     return SCRIPT_RUN_ERROR;
 }
 
@@ -268,6 +269,16 @@ int lua_script_start( char const* script, int ptp )
     return 1;
 }
 
+int lua_script_start_file(char const* filename)
+{
+    static char loader[256];
+    char *wrapper = "";
+    if ((script_version.major == 1) && (script_version.minor == 3))
+        wrapper = "require(\"wrap13\"); ";
+    sprintf(loader, "%slocal sub, err = loadfile(\"%s\"); collectgarbage(); if sub then sub() else error(err) end", wrapper, filename);
+    return lua_script_start(loader, 0);
+}
+
 // run a timeslice of lua script
 int lua_script_run(void)
 {
@@ -297,7 +308,7 @@ int lua_script_run(void)
         lua_script_finish(Lt);
         // Display 'Finished message', unless running from PTP
         if (lua_script_is_ptp == 0)
-            script_console_add_line(LANG_CONSOLE_TEXT_FINISHED);
+            script_console_add_error(LANG_CONSOLE_TEXT_FINISHED);
         return SCRIPT_RUN_ENDED;
     }
 
@@ -314,7 +325,7 @@ int lua_run_restore()
 			script_console_add_line( (long)lua_tostring( Lt, -1 ) );
 		}
         if (lua_script_is_ptp == 0)
-            script_console_add_line(LANG_CONSOLE_TEXT_FINISHED);
+            script_console_add_error(LANG_CONSOLE_TEXT_FINISHED);
 	}
     return 0;
 }
@@ -372,7 +383,7 @@ static int luaCB_get_curve_file( lua_State* L )
 
 static int luaCB_set_aelock(lua_State* L) 
 {
-  int val = luaL_checknumber(L, 1);
+  int val = on_off_value_from_lua_arg(L, 1);
   if (val>0) DoAELock();  // 1: enable AELock
   else UnlockAE();       // 0: disable unlock AE
   return 0;
@@ -380,7 +391,7 @@ static int luaCB_set_aelock(lua_State* L)
 
 static int luaCB_set_aflock(lua_State* L) 
 {
-  int val = luaL_checknumber(L, 1);
+  int val = on_off_value_from_lua_arg(L, 1);
   if (val>0) DoAFLock();  // 1: enable AFLock
   else UnlockAF();       // 0: disable unlock AF
   return 0;
@@ -388,8 +399,8 @@ static int luaCB_set_aflock(lua_State* L)
 
 static int luaCB_set_mf(lua_State* L) 
 {
-  int val = luaL_checknumber(L, 1);
-  if (val>0) val=DoMFLock();  // 1: enable 
+  int val = on_off_value_from_lua_arg(L, 1);
+  if (val>0) val=DoMFLock();  // 1: enable
   else val=UnlockMF();       // 0: disable
   lua_pushnumber(L, val); 
   return 1; 
@@ -752,10 +763,7 @@ static int luaCB_set_av96( lua_State* L )
 
 static int luaCB_set_focus_interlock_bypass( lua_State* L )
 {
-    int mode = luaL_checknumber( L, 1 );
-
-    set_focus_bypass(mode) ;
-
+    set_focus_bypass(on_off_value_from_lua_arg( L, 1 ));
     return 0;
 }
 
@@ -860,14 +868,14 @@ static int luaCB_get_raw_nr( lua_State* L )
 
 static int luaCB_set_raw( lua_State* L )
 {
-  conf.save_raw = luaL_checknumber( L, 1 );
+  conf.save_raw = on_off_value_from_lua_arg( L, 1 );
   return 0;
 }
 
 static int luaCB_get_raw( lua_State* L )
 {
-  lua_pushnumber( L, conf.save_raw );
-  return 1;
+    lua_pushboolean( L, conf.save_raw );
+    return 1;
 }
 
 static int luaCB_set_sv96( lua_State* L )
@@ -1133,26 +1141,10 @@ static int luaCB_textbox( lua_State* L ) {
 }
 
 // begin lua draw fuctions
-static int get_color(int cl) {
-    char out=0;                     //defaults to 0 if any wrong number
-
-    if (cl<256)
-        out=cl;
-    else {
-        if (cl-256<sizeof(script_colors)) {
-            if(camera_info.state.mode_rec)
-                out=script_colors[cl-256][1];
-            else
-                out=script_colors[cl-256][0];
-        }
-    }
-    return out;
-}
-
 static int luaCB_draw_pixel( lua_State* L ) {
   coord x1=luaL_checknumber(L,1);
   coord y1=luaL_checknumber(L,2);
-  color cl=get_color(luaL_checknumber(L,3));
+  color cl=get_script_color(luaL_checknumber(L,3));
   draw_pixel(x1,y1,cl);
   return 0;
 }
@@ -1162,7 +1154,7 @@ static int luaCB_draw_line( lua_State* L ) {
   coord y1=luaL_checknumber(L,2);
   coord x2=luaL_checknumber(L,3);
   coord y2=luaL_checknumber(L,4);
-  color cl=get_color(luaL_checknumber(L,5));
+  color cl=get_script_color(luaL_checknumber(L,5));
   draw_line(x1,y1,x2,y2,cl);
   return 0;
 }
@@ -1172,9 +1164,9 @@ static int luaCB_draw_rect( lua_State* L ) {
   coord y1=luaL_checknumber(L,2);
   coord x2=luaL_checknumber(L,3);
   coord y2=luaL_checknumber(L,4);
-  color cl=get_color(luaL_checknumber(L,5));
-  int   th=luaL_optnumber(L,6,1);
-  draw_rect_thick(x1,y1,x2,y2,cl,th);
+  color cl=get_script_color(luaL_checknumber(L,5));
+  int   th=luaL_optnumber(L,6,1) & RECT_BORDER_MASK;
+  draw_rectangle(x1,y1,x2,y2,MAKE_COLOR(cl,cl),th);
   return 0;
 }
 
@@ -1183,11 +1175,10 @@ static int luaCB_draw_rect_filled( lua_State* L ) {
   coord y1 =luaL_checknumber(L,2);
   coord x2 =luaL_checknumber(L,3);
   coord y2 =luaL_checknumber(L,4);
-  color clf=get_color(luaL_checknumber(L,5));
-  color clb=get_color(luaL_checknumber(L,6));
-  int   th =luaL_optnumber(L,7,1);
-  clf=256*clb+clf;
-  draw_filled_rect_thick(x1,y1,x2,y2,clf,th);
+  color clf=get_script_color(luaL_checknumber(L,5));
+  color clb=get_script_color(luaL_checknumber(L,6));
+  int   th =luaL_optnumber(L,7,1) & RECT_BORDER_MASK;
+  draw_rectangle(x1,y1,x2,y2,MAKE_COLOR(clb,clf),th|DRAW_FILLED);
   return 0;
 }
 
@@ -1196,8 +1187,8 @@ static int luaCB_draw_ellipse( lua_State* L ) {
   coord y1=luaL_checknumber(L,2);
   coord a=luaL_checknumber(L,3);
   coord b=luaL_checknumber(L,4);
-  color cl=get_color(luaL_checknumber(L,5));
-  draw_ellipse(x1,y1,a,b,cl);
+  color cl=get_script_color(luaL_checknumber(L,5));
+  draw_ellipse(x1,y1,a,b,cl,0);
   return 0;
 }
 
@@ -1206,8 +1197,8 @@ static int luaCB_draw_ellipse_filled( lua_State* L ) {
   coord y1=luaL_checknumber(L,2);
   coord a=luaL_checknumber(L,3);
   coord b=luaL_checknumber(L,4);
-  color cl=256*get_color(luaL_checknumber(L,5));
-  draw_filled_ellipse(x1,y1,a,b,cl);
+  color cl=get_script_color(luaL_checknumber(L,5));
+  draw_ellipse(x1,y1,a,b,cl,DRAW_FILLED);
   return 0;
 }
 
@@ -1216,8 +1207,8 @@ static int luaCB_draw_string( lua_State* L )
   coord x1 = luaL_checknumber(L,1);
   coord y1 = luaL_checknumber(L,2);
   const char *t = luaL_checkstring( L, 3 );
-  color clf = get_color(luaL_checknumber(L,4));
-  color clb = get_color(luaL_checknumber(L,5));
+  color clf = get_script_color(luaL_checknumber(L,4));
+  color clb = get_script_color(luaL_checknumber(L,5));
   int xsize = luaL_optnumber(L,6,1);
   int ysize = luaL_optnumber(L,7,xsize);
   
@@ -1278,7 +1269,7 @@ static int luaCB_get_usb_power( lua_State* L )
 // enable USB High Perfomance timer
 static int luaCB_set_remote_timing( lua_State* L )
 {
-  int val= luaL_checknumber(L,1);
+  int val= on_off_value_from_lua_arg(L,1);
   if (val > 0 )
      lua_pushboolean(L,start_usb_HPtimer(val));
   else
@@ -1291,6 +1282,13 @@ static int luaCB_usb_force_active( lua_State* L )
 {
   lua_pushboolean(L,force_usb_state(on_off_value_from_lua_arg(L,1)));
   return 1;
+}
+
+// set next shot to wait for USB sync ( 5V - 0V transition )
+static int luaCB_usb_sync_wait( lua_State* L )
+{
+  usb_sync_wait_flag = on_off_value_from_lua_arg(L,1);
+  return 0;
 }
 
 static int luaCB_enter_alt( lua_State* L )
@@ -1333,12 +1331,8 @@ static int luaCB_shut_down( lua_State* L )
 
 static int luaCB_print_screen( lua_State* L )
 {
-  
-  if (lua_isboolean( L, 1 ))
-    script_print_screen_statement( lua_toboolean( L, 1 ) );
-  else
-    script_print_screen_statement( luaL_checknumber( L, 1 ));
-  return 0;
+    script_print_screen_statement( on_off_value_from_lua_arg( L, 1 ) );
+    return 0;
 }
 
 static int luaCB_get_movie_status( lua_State* L )
@@ -1371,8 +1365,7 @@ static int luaCB_set_movie_status( lua_State* L )
 
 static int luaCB_get_video_button( lua_State* L )
 {
-  int to = (camera_info.cam_has_video_button) ? 1 : 0;
-  lua_pushnumber( L, to );
+  lua_pushboolean( L, camera_info.cam_has_video_button );
   return 1;
 }
 
@@ -1402,7 +1395,7 @@ static int luaCB_get_focus_state( lua_State* L )
 
 static int luaCB_get_focus_ok( lua_State* L )
 {
-  lua_pushnumber( L, shooting_get_focus_ok() );
+  lua_pushboolean( L, shooting_get_focus_ok() );
   return 1;
 }
 
@@ -1485,15 +1478,20 @@ static int luaCB_get_histo_range( lua_State* L )
 {
   int from = (luaL_checknumber(L,1));
   int to = (luaL_checknumber(L,2));
-  if (shot_histogram_isenabled()) lua_pushnumber( L, shot_histogram_get_range(from, to) );
-  else lua_pushnumber( L, -1 ); // TODO should probably return nil 
+  lua_pushnumber( L, libshothisto->shot_histogram_get_range(from, to) );
   return 1;
 }
 
 static int luaCB_shot_histo_enable( lua_State* L )
 {
-  shot_histogram_set(luaL_checknumber( L, 1 ));
+  libshothisto->shot_histogram_set(on_off_value_from_lua_arg( L, 1 ));
   return 0;
+}
+
+static int luaCB_shot_histo_write_to_file( lua_State* L )
+{
+    libshothisto->write_to_file();
+    return 0;
 }
 
 /*
@@ -1691,13 +1689,13 @@ static int luaCB_bitnot( lua_State* L )
   return 1;
 }
 
-static void set_string_field(lua_State* L, const char *key, const char *val)
+void set_string_field(lua_State* L, const char *key, const char *val)
 {
   lua_pushstring(L, val);
   lua_setfield(L, -2, key);
 }
 
-static void set_number_field(lua_State* L, const char *key, int val)
+void set_number_field(lua_State* L, const char *key, int val)
 {
   lua_pushnumber(L, val);
   lua_setfield(L, -2, key);
@@ -1762,7 +1760,7 @@ static int luaCB_raw_merge_end( lua_State* L )
 // Enable/disable LCD back light (input argument 1/0)
 static int luaCB_set_backlight( lua_State* L )
 {
-  int val = (luaL_checknumber(L,1));
+  int val = on_off_value_from_lua_arg(L,1);
 
   if (val > 0) TurnOnBackLight();
   else TurnOffBackLight();
@@ -1772,7 +1770,7 @@ static int luaCB_set_backlight( lua_State* L )
 // Enable/disable LCD display (input argument 1/0)
 static int luaCB_set_lcd_display( lua_State* L )
 {
-  int val = (luaL_checknumber(L,1));
+  int val = on_off_value_from_lua_arg(L,1);
 
   if (val > 0) TurnOnDisplay();
   else TurnOffDisplay();
@@ -2002,7 +2000,7 @@ static int luaCB_set_record( lua_State* L )
 // only for when USB is connected
 static int luaCB_switch_mode_usb( lua_State* L )
 {
-  switch_mode_usb(luaL_checknumber(L,1));
+  switch_mode_usb(on_off_value_from_lua_arg(L,1));
   return 0;
 }
  
@@ -2243,17 +2241,17 @@ static int luaCB_set_config_value( lua_State* L ) {
 }
 
 static int luaCB_set_config_autosave( lua_State* L ) {
-    conf_setAutosave(luaL_checknumber(L, 1));
+    conf_setAutosave(on_off_value_from_lua_arg(L, 1));
     return 0;
 }
 
 static int luaCB_save_config_file( lua_State* L ) {
-    lua_pushnumber(L, save_config_file(luaL_checknumber(L, 1), luaL_optstring(L, 2, NULL)));
+    lua_pushboolean(L, save_config_file(luaL_checknumber(L, 1), luaL_optstring(L, 2, NULL)));
     return 1;
 }
 
 static int luaCB_load_config_file( lua_State* L ) {
-    lua_pushnumber(L, load_config_file(luaL_checknumber(L, 1), luaL_optstring(L, 2, NULL)));
+    lua_pushboolean(L, load_config_file(luaL_checknumber(L, 1), luaL_optstring(L, 2, NULL)));
     return 1;
 }
 
@@ -2725,7 +2723,8 @@ static const luaL_Reg chdk_funcs[] = {
     FUNC(set_autostart)
     FUNC(get_usb_power)
     FUNC(set_remote_timing)
-    FUNC(usb_force_active)    
+    FUNC(usb_force_active)
+    FUNC(usb_sync_wait)
     FUNC(enter_alt)
     FUNC(exit_alt)
     FUNC(get_alt_mode)
@@ -2756,6 +2755,7 @@ static const luaL_Reg chdk_funcs[] = {
  
     FUNC(get_histo_range)
     FUNC(shot_histo_enable)
+    FUNC(shot_histo_write_to_file)
     FUNC(get_live_histo)
     FUNC(play_sound)
     FUNC(get_temperature)
@@ -2884,6 +2884,7 @@ void register_lua_funcs( lua_State* L )
   const luaL_reg *r;
 
   register_shoot_hooks( L );
+  luaopen_rawop( L );
 
   lua_pushlightuserdata( L, action_push_click );
   lua_pushcclosure( L, luaCB_keyfunc, 1 );
@@ -2931,11 +2932,28 @@ void register_lua_funcs( lua_State* L )
   ATTENTION: DO NOT REMOVE OR CHANGE SIGNATURES IN THIS SECTION
  **************************************************************/
 
-static void lua_set_variable(int varnum, int value)
+static void lua_set_variable(char *name, int value, int isBool, int isTable, int labelCount, const char **labels)
 {
-    char var = 'a'+varnum;
-    lua_pushlstring( L, &var, 1 );
-    lua_pushnumber( L, value );
+    lua_pushstring( L, name );
+    if (isTable)
+    {
+        lua_createtable(L, labelCount, 2);
+        int i;
+        for (i=0; i<labelCount; i++)
+        {
+            lua_pushstring(L,labels[i]);
+            lua_rawseti(L,-2,i+1);
+        }
+        SET_INT_FIELD("index", value+1);        // Make value 1 based for Lua table index
+        SET_STR_FIELD("value", labels[value]);
+    }
+    else
+    {
+        if (isBool)
+            lua_pushboolean( L, value );
+        else
+            lua_pushnumber( L, value );
+    }
     lua_settable( L, LUA_GLOBALSINDEX );
 }
 
@@ -2950,6 +2968,7 @@ libscriptapi_sym _liblua =
     },
 
     lua_script_start,
+    lua_script_start_file,
     lua_script_run,
     lua_script_reset,
     lua_set_variable,
@@ -2967,8 +2986,8 @@ ModuleInfo _module_info =
     ANY_CHDK_BRANCH, 0, OPT_ARCHITECTURE,			// Requirements of CHDK version
     ANY_PLATFORM_ALLOWED,		// Specify platform dependency
 
-    (int32_t)"Lua",             // Module name
-    (int32_t)"Run Lua Scripts",
+    (int32_t)"Lua",
+    MTYPE_SCRIPT_LANG,          //Run Lua Scripts
 
     &_liblua.base,
 

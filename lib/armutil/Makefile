@@ -1,19 +1,17 @@
 topdir=../../
 
-SKIPPLATFORMCHECK=1
+include $(topdir)makefile_arm.inc
 
-include $(topdir)makefile.inc
-
-OBJS = callfunc.o reboot.o cache.o
+OBJS = $Ocallfunc.o $Oreboot.o $Ocache.o
 
 OBJS_ALL = $(OBJS)
 
-all: libarmutil.a
+all: $Olibarmutil.a
 
-libarmutil.a: $(OBJS)
+$Olibarmutil.a: $(OBJS)
 
 clean:
-	rm -f $(OBJS_ALL) *.a
+	rm -f $O*.* *.o *.a
 
 distclean: clean
 	rm -f $(OBJS_ALL:.o=.d)

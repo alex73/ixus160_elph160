@@ -22,10 +22,11 @@
 
 #define LANG_MENU_BACK                  12
 
-
 #define LANG_MENU_RAW_TITLE             13
-
 #define LANG_MENU_RAW_SAVE              14
+
+#define LANG_MENU_MISC_TOOLS            15
+
 #define LANG_MENU_RAW_FIRST_ONLY        16
 #define LANG_MENU_RAW_SAVE_IN_DIR       17
 #define LANG_MENU_RAW_PREFIX            18
@@ -138,8 +139,6 @@
 #define LANG_MENU_READ_AUTOSCROLL       99
 #define LANG_MENU_READ_AUTOSCROLL_DELAY 100
 
-
-#define LANG_MENU_GAMES_TITLE           101
 
 #define LANG_MENU_GAMES_REVERSI         102
 #define LANG_MENU_GAMES_SOKOBAN         103
@@ -604,23 +603,23 @@
 // GPS
 #define LANG_MENU_GPS                           487
 #define LANG_MENU_GPS_NAVI_SHOW                 488
-#define LANG_MENU_GPS_KOMPASS_SHOW              489
+#define LANG_MENU_GPS_COMPASS_SHOW              489
 #define LANG_MENU_GPS_COORDINATES_SHOW          490
 #define LANG_MENU_GPS_HEIGHT_SHOW               491
 #define LANG_MENU_GPS_WAYPOINT_SAVE             492
 #define LANG_MENU_GPS_TRACK_TIME                493
 #define LANG_MENU_GPS_TRACK_START               494
 #define LANG_MENU_GPS_TRACK_STOP                495
-#define LANG_MENU_GPS_KOMPASS_HIDE              496
+#define LANG_MENU_GPS_COMPASS_HIDE              496
 #define LANG_MENU_GPS_NAVI_HIDE                 497
 #define LANG_MENU_GPS_WAIT_FOR_SIGNAL           498
-#define LANG_MENU_GPS_KOMPASS_TIME              499
+#define LANG_MENU_GPS_COMPASS_TIME              499
 #define LANG_MENU_GPS_NAVI_TIME                 500
 #define LANG_MENU_GPS_REC_PLAY_TIME             501
 #define LANG_MENU_GPS_PLAY_DARK_TIME            502
 #define LANG_MENU_GPS_VALUES                    503
 #define LANG_MENU_GPS_WAIT_FOR_SIGNAL_TIME      504
-#define LANG_MENU_GPS_KOMPASS_SMOOTH            505
+#define LANG_MENU_GPS_COMPASS_SMOOTH            505
 #define LANG_MENU_GPS_LOGGING                   506
 #define LANG_MENU_GPS_TAGGING                   507
 #define LANG_MENU_GPS_NAVIGATION                508
@@ -771,7 +770,9 @@
 #define LANG_MSG_RESET_COLORS_TITLE             631
 #define LANG_MSG_RESET_COLORS_TEXT              632
 
-#define GUI_LANG_ITEMS                          632
+#define LANG_MENU_DISABLE_LFN_SUPPORT           633
+
+#define GUI_LANG_ITEMS                          633
 
 //-------------------------------------------------------------------
 extern void gui_lang_init();

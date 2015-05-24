@@ -313,12 +313,22 @@ static int default_script_start(char const* script, int is_ptp)
     // Failure
     return 0;
 }
+static int default_script_start_file(char const* filename)
+{
+    // If load succeeded call module version of function
+    if (module_load(&h_script))
+        return libscriptapi->script_start_file(filename);
+
+    // Failure
+    return 0;
+}
 
 // Default library - module unloaded
 libscriptapi_sym default_libscriptapi =
 {
     { 0,0,0,0,0 },
     default_script_start,
+    default_script_start_file,
     dummy_int,              //script_run
     dummy_void,             //script_reset
     dummy_void,             //set_variable
@@ -533,7 +543,7 @@ module_handler_t h_palette =
 };
 
 // Default (unloaded) function
-static void default_show_palette(int mode, color st_color, void (*on_select)(color clr))
+static void default_show_palette(int mode, chdkColor st_color, void (*on_select)(chdkColor clr))
 {
     // If load succeeded call module version of function
     if (module_load(&h_palette))
@@ -793,46 +803,43 @@ libtxtread_sym default_libtxtread =
 // Library pointer
 libtxtread_sym* libtxtread = &default_libtxtread;
 
+/************* MODULE Shot Histogram ******/
 
-/************* MODULE EYEFI ******/
-
-#define MODULE_NAME_EYEFI "eyefi.flt"
+#define MODULE_NAME_SHOTHIST "shothist.flt"
 
 // Forward reference
-extern libeyefi_sym default_libeyefi;
+extern libshothisto_sym default_libshothisto;
 
-module_handler_t h_eyefi =
+module_handler_t h_shothisto =
 {
-    (base_interface_t**)&libeyefi,
-    &default_libeyefi.base,
-    EYEFI_VERSION,
-    MODULE_NAME_EYEFI
+    (base_interface_t**)&libshothisto,
+    &default_libshothisto.base,
+    SHOT_HISTO_VERSION,
+    MODULE_NAME_SHOTHIST
 };
 
-static void default_wlanOnOff(int on_off)
+static int default_shot_histogram_set(int enable)
 {
-    if (module_load(&h_eyefi))
-        libeyefi->wlanOnOff(on_off);
+    // If enabling shot histogram, then load module, otherwise nothing to do
+    if (enable)
+        if (module_load(&h_shothisto))
+            return libshothisto->shot_histogram_set(enable);
+    return 1;
 }
-static void default_availableNetworks()
+static int default_shot_histogram_get_range()
 {
-    if (module_load(&h_eyefi))
-        libeyefi->availableNetworks();
-}
-static void default_configuredNetworks()
-{
-    if (module_load(&h_eyefi))
-        libeyefi->configuredNetworks();
+    return -1;  // Module not loaded
 }
 
 // Default library - module unloaded
-libeyefi_sym default_libeyefi=
+libshothisto_sym default_libshothisto=
 {
-	{ 0,0,0,0,0 },
-	default_wlanOnOff,          //Turn eyefi wlan on/off
-	default_availableNetworks,  //Select or add network
-    default_configuredNetworks, //Select or delete network
+    { 0,0,0,0,0 },
+    default_shot_histogram_set,
+    default_shot_histogram_get_range,
+    dummy_void,                         //build_shot_histogram,
+    dummy_void,                         //write_to_file
 };
 
 // Library pointer
-libeyefi_sym* libeyefi = &default_libeyefi;
+libshothisto_sym* libshothisto = &default_libshothisto;

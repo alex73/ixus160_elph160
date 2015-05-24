@@ -125,8 +125,6 @@
  99 "Povolit aut. posouvání"
 100 "Prodleva aut. posouvání (s)"
 
-101 "Hry"
-
 102 "Reversi"
 103 "Sokoban"
 
@@ -623,7 +621,7 @@
 532 "Camera will shutdown in %02d seconds!"
 533 "Automatic shutdown cancelled!"
 534 "Camera will wait for GPS for %01d:%02d"
-535 "Navigation to Home Loc is not possible!"
+535 "Navigation to Home Loc\n is not possible!"
 536 "Cant navigate to photo: %s!"
 537 "Distance:    = %i m"
 538 "Duration:    = %i:%i:%i"
@@ -707,7 +705,6 @@
 597 "Pøidat modul do Uživatelského menu"
 598 "Odstranit aktuální položku z Uživatelského menu"
 
-599 "EyeFi"
 600 "Operace EyeFi"
 601 "Dostupné sítì"
 602 "Nastavené sítì"

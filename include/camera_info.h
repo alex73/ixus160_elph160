@@ -13,7 +13,8 @@
 //==========================================================
 
 // For Depth of Field, and Hyperfocal calculations
-typedef struct {
+typedef struct
+{
     short hyperfocal_valid;
     short distance_valid;
     int   hyperfocal_distance_1e3;
@@ -31,9 +32,16 @@ typedef struct {
 // Data Structure to store camera specific information
 // Used by modules to ensure module code is platform independent
 
-typedef struct {
-	_version_t api_version;     // version of this structure
+// Note: if these structures are changed update the corresponding version
+//      _cam_sensor --> CAM_SENSOR_VERSION
+//      _cam_screen --> CAM_SCREEN_VERSION
+//      _cam_info   --> CAM_INFO_VERSION
+#define CAM_SCREEN_VERSION      {2,0}       // Version for camera_screen
+#define CAM_SENSOR_VERSION      {1,0}       // Version for camera_sensor
+#define CAM_INFO_VERSION        {1,0}       // Version for camera_info
 
+typedef struct
+{
     int bits_per_pixel;
     int black_level;
     int white_level;
@@ -81,14 +89,14 @@ extern _cam_sensor camera_sensor;
 
 typedef struct 
 {
-	_version_t api_version; 			                // version of this structure
-
     int     width, height, size;                        // Size of bitmap screen in CHDK co-ordinates
     int     physical_width;                             // Actual width of bitmap screen in pixels
     int     buffer_width, buffer_height, buffer_size;   // Physical size of bitmap screen
-    int     edge_hmargin, ts_button_border;             // margin and touch-screen adjustment values
+    int     disp_left, disp_right, disp_width;          // Usable horizontal size (after excluding touch screen buttons)
+    int     edge_hmargin;                               // edge overlay top & bottom margin to skip
     int     zebra_nobuf, zebra_aspect_adjust;           // zebra feature settings
     int     has_variable_aspect;                        // zebra feature settings
+    int     ts_menu_border;                             // touch screen top & bottom margin to skip for menus (area that is less sensitive)
     int     menu_border_width;                          // Width of border on each side of CHDK menu
     int     fselect_name_size;                          // file select window file name column width
     int     fselect_size_size;                          // file select window file size column width
@@ -105,8 +113,6 @@ typedef struct
 
 typedef struct
 {
-	_version_t api_version; 			// version of this structure
-
     // Canon PARAMS indexes
     struct
     {
@@ -187,7 +193,7 @@ typedef struct
         int     mode_rec_or_review;         // Are we in camera record mode (still image) or review hold & OSD displayed in review hold
         int     mode_play;                  // Are we in camera playback mode
         int     mode_photo;                 // Are we in camera photo mode (playback or not video and not stitch)
-                                            //  - why is some functionality disabled in MODE_STITCH; but not MODE_SCN_STICH (e.g. bracketing) ?????
+                                            //  - why is some functionality disabled in MODE_STITCH; but not MODE_SCN_STITCH (e.g. bracketing) ?????
     } state;
 
     // Performance counters

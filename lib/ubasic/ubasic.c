@@ -557,8 +557,7 @@ static int factor(void)
     accept(TOKENIZER_GET_HISTO_RANGE);
     int from = expr();
     int to = expr();
-    if (shot_histogram_isenabled()) r = (unsigned short)shot_histogram_get_range(from, to);
-    else r = -1;
+    r = (unsigned short)libshothisto->shot_histogram_get_range(from, to);
     break;
   case TOKENIZER_GET_TEMPERATURE:
     accept(TOKENIZER_GET_TEMPERATURE);
@@ -2211,6 +2210,12 @@ static void md_detect_motion_statement()
 }
 
 /*---------------------------------------------------------------------------*/
+static int _shot_histogram_set(int enable)
+{
+    return libshothisto->shot_histogram_set(enable);
+}
+
+/*---------------------------------------------------------------------------*/
 
 static void
 statement(void)
@@ -2570,7 +2575,7 @@ statement(void)
       break;
 
   case TOKENIZER_SHOT_HISTO_ENABLE:
-      one_int_param_function(token, (void (*)(int))shot_histogram_set);
+      one_int_param_function(token, (void (*)(int))_shot_histogram_set);
       break;
 
   case TOKENIZER_SET_RECORD:
@@ -2598,6 +2603,12 @@ statement(void)
     break;
   case TOKENIZER_SET_YIELD:
     set_yield_statement();
+    break;
+
+  case TOKENIZER_USB_SYNC_WAIT:
+    accept(TOKENIZER_USB_SYNC_WAIT);
+    if (expr()) usb_sync_wait_flag = 1;
+    else        usb_sync_wait_flag = 0;
     break;
 
   default:
@@ -2677,12 +2688,12 @@ int ubasic_run(void)
                 }
                 sprintf(buf, "uBASIC:%d %s ", ubasic_linenumber(), msg);
                 // Show error message
-                script_console_add_line((long)buf);
-                script_console_add_line(LANG_CONSOLE_TEXT_TERMINATED);
+                script_console_add_error((long)buf);
+                script_console_add_error(LANG_CONSOLE_TEXT_TERMINATED);
                 return SCRIPT_RUN_ERROR;
             }
             // Show 'Finished' message
-            script_console_add_line(LANG_CONSOLE_TEXT_FINISHED);
+            script_console_add_error(LANG_CONSOLE_TEXT_FINISHED);
             return SCRIPT_RUN_ENDED;
         }
 

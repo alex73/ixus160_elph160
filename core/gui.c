@@ -23,7 +23,6 @@
 #include "usb_remote.h"
 #include "module_load.h"
 #include "clock.h"
-#include "eyefi.h"
 
 // splash screen time
 #if defined(OPT_EXPIRE_TEST)
@@ -211,20 +210,11 @@ static CMenu autoiso_submenu = {0x2d,LANG_MENU_AUTOISO_TITLE, autoiso_submenu_it
 //-------------------------------------------------------------------
 #if OPT_EXPIRE_TEST
 
-static int exp_text_width, exp_text_height;
+static const char *exp_text = "Test version expired\nPlease post feedback to:\nchdk.setepontos.com\nYour comments are needed\nto finish this port.\nThanks";
 
-static const char *exp_text[] =
-{
-    "  Test version expired  ",
-    "Please post feedback to:",
-    "  chdk.setepontos.com   ",
-    "Your comments are needed",
-    "to finish this port.    ",
-    "Thanks                  "
-};
-
-#define EXP_TEXT_WIDTH   32
+#define EXP_TEXT_WIDTH   28
 #define EXP_TEXT_HEIGHT  6
+
 int get_expire_days_left(void) {
     time_t ts = time(NULL);
     if(ts > OPT_EXPIRE_TEST) {
@@ -239,14 +229,13 @@ void do_expire_check() {
     }
     static int in_splash = SPLASH_TIME;
 
-
     if(in_splash)
     {
         in_splash--;
         return;
     }
 
-    color cl;
+    twoColors cl;
     if (camera_info.state.gui_mode_alt) {
         cl=MAKE_COLOR(COLOR_RED, COLOR_WHITE);
 #ifdef CAM_DISP_ALT_TEXT
@@ -257,28 +246,17 @@ void do_expire_check() {
     } else {
         return;
     }
-    coord x, y;
-    exp_text_width  = EXP_TEXT_WIDTH * FONT_HEIGHT + 8;
-    exp_text_height = EXP_TEXT_HEIGHT * FONT_WIDTH + 10;
 
-    x = (camera_screen.width-exp_text_width)>>1;
-    y = ((camera_screen.height-exp_text_height)>>1) - 60;
+    coord x = (camera_screen.width  - EXP_TEXT_WIDTH*FONT_WIDTH) >> 1;
+    coord y = (camera_screen.height - EXP_TEXT_HEIGHT*FONT_HEIGHT) >> 1;
 
-    int i;
-    for (i=0; i<EXP_TEXT_HEIGHT; i++)
-    {
-        draw_string(x+((exp_text_width-strlen(exp_text[i])*FONT_WIDTH)>>1), y+i*FONT_HEIGHT+4, exp_text[i], cl);
-        // outside of alt, just show the "expired" line
-        if (!camera_info.state.gui_mode_alt) {
-            break;
-        }
-    }
+    draw_text_justified(x, y, exp_text, cl, EXP_TEXT_WIDTH, camera_info.state.gui_mode_alt ? EXP_TEXT_HEIGHT : 1, TEXT_CENTER|TEXT_FILL);
 }
 
 void do_expire_splash(int x,int y) {
     static char under_dev_text[64];
     int days_left = get_expire_days_left();
-    color cl = MAKE_COLOR(COLOR_RED, COLOR_WHITE);
+    twoColors cl = MAKE_COLOR(COLOR_RED, COLOR_WHITE);
     if(days_left) {
         sprintf(under_dev_text, "TEST BUILD %d DAYS LEFT",days_left);
     } else {
@@ -413,8 +391,6 @@ static CMenuItem debug_submenu_items[] = {
     MENU_ITEM   (0x2a,LANG_MENU_DEBUG_TASKLIST_START,       MENUITEM_INT|MENUITEM_F_UNSIGNED|MENUITEM_F_MINMAX,   &debug_tasklist_start, MENU_MINMAX(0, 63) ),
 #endif
     MENU_ITEM   (0x5c,LANG_MENU_DEBUG_SHOW_MISC_VALS,       MENUITEM_BOOL,                  &conf.debug_misc_vals_show,         0 ),
-    MENU_ITEM   (0x2a,LANG_MENU_DEBUG_MEMORY_BROWSER,       MENUITEM_PROC,                  module_run,             "memview.flt" ),
-    MENU_ITEM   (0x2a,LANG_MENU_DEBUG_BENCHMARK,            MENUITEM_PROC,                  module_run,             "benchm.flt" ),
     MENU_ENUM2  (0x5c,LANG_MENU_DEBUG_SHORTCUT_ACTION,      &conf.debug_shortcut_action,    gui_debug_shortcut_modes ),
     MENU_ITEM   (0x2a,LANG_MENU_DEBUG_MEMDMP,               MENUITEM_SUBMENU,               &memdmp_submenu,                    0 ),
     MENU_ITEM   (0x2a,LANG_SAVE_ROMLOG,                     MENUITEM_PROC,                  save_romlog,                        0 ),
@@ -430,100 +406,129 @@ static CMenu debug_submenu = {0x2a,LANG_MENU_DEBUG_TITLE, debug_submenu_items };
 
 #ifdef CAM_HAS_GPS
 
+#define GPS_START 0
+#define GPS_STOP 1
+
 // forward reference
 static CMenuItem gps_submenu_items[];
-
-int exit_gpx_record=1;
-int exit_gps_kompass=1;
-int exit_gps_navi=1;
 
 static void gpx_start_stop(int arg)
 {
     int i = 0;
-    while( gps_submenu_items[i].value != (int*)gpx_start_stop ) i++;    //find entry
-    if( gps_submenu_items[i].text == LANG_MENU_GPS_TRACK_START ) {  //toggle text
-        gps_submenu_items[i].text = LANG_MENU_GPS_TRACK_STOP;
-		exit_gpx_record = 0;
-		init_gpx_record_task();
-
-    } else {
-        gps_submenu_items[i].text = LANG_MENU_GPS_TRACK_START;
-		exit_gpx_record = 1;
+    if( conf.gps_on_off ) {  
+        while( gps_submenu_items[i].value != (int*)gpx_start_stop ) i++;    //find entry
+        if( gps_submenu_items[i].text == LANG_MENU_GPS_TRACK_START ) {      //toggle text
+            gps_submenu_items[i].text = LANG_MENU_GPS_TRACK_STOP;
+            init_gps_logging_task(GPS_START);
+        } else {
+            gps_submenu_items[i].text = LANG_MENU_GPS_TRACK_START;
+            init_gps_logging_task(GPS_STOP); 
+        }
     }
 }
 
-static void show_kompass(int arg)
+static void navigate_to_home(int);
+static void navigate_to_image(int);
+
+static void show_compass(int arg)
 {
     int i = 0;
-    while( gps_submenu_items[i].value != (int*)show_kompass ) i++;    //find entry
-    if( gps_submenu_items[i].text == LANG_MENU_GPS_KOMPASS_SHOW ) {  //toggle text
-        gps_submenu_items[i].text = LANG_MENU_GPS_KOMPASS_HIDE;
-		exit_gps_kompass = 0;
-		init_gps_kompass_task();
-
-    } else {
-        gps_submenu_items[i].text = LANG_MENU_GPS_KOMPASS_SHOW;
-		exit_gps_kompass = 1;
+    if( conf.gps_on_off ) {      
+        while( gps_submenu_items[i].value != (int*)show_compass ) i++;      //find entry
+        if( gps_submenu_items[i].text == LANG_MENU_GPS_COMPASS_SHOW ) {     //toggle text
+            init_gps_compass_task(GPS_START);
+            gps_submenu_items[i].text = LANG_MENU_GPS_COMPASS_HIDE;
+            i = 0;
+            while( gps_submenu_items[i].value != (int*)navigate_to_home ) i++;
+            gps_submenu_items[i].text = LANG_MENU_GPS_NAVI_HOME;
+            i = 0;
+            while( gps_submenu_items[i].value != (int*)navigate_to_image ) i++;  
+            gps_submenu_items[i].text = LANG_MENU_GPS_NAVI_SHOW;
+        } else {
+            gps_submenu_items[i].text = LANG_MENU_GPS_COMPASS_SHOW;
+            init_gps_compass_task(GPS_STOP);        
+        }
     }
 }
 
-static void show_navi(int arg)
+static void navigate_to_image(int arg)
 {
     int i = 0;
-    while( gps_submenu_items[i].value != (int*)show_navi ) i++;    //find entry
-    if( gps_submenu_items[i].text == LANG_MENU_GPS_NAVI_SHOW ) {  //toggle text
-        gps_submenu_items[i].text = LANG_MENU_GPS_NAVI_HIDE;
-		exit_gpx_record = 0;
-		exit_gps_navi = 0;
-		exit_gps_kompass = 0;
-		init_gps_trackback_task();
-
-    } else {
-        gps_submenu_items[i].text = LANG_MENU_GPS_NAVI_SHOW;
-		exit_gps_navi = 1;
-		exit_gps_kompass = 1;
-		exit_gpx_record = 1;
+    if( conf.gps_on_off ) {      
+        while( gps_submenu_items[i].value != (int*)navigate_to_image ) i++;  //find entry
+        if( gps_submenu_items[i].text == LANG_MENU_GPS_NAVI_SHOW ) {         //toggle text
+            if( init_gps_navigate_to_photo(GPS_START) )
+            {
+                gps_submenu_items[i].text = LANG_MENU_GPS_NAVI_HIDE;
+                i = 0;
+                while( gps_submenu_items[i].value != (int*)show_compass ) i++;
+                gps_submenu_items[i].text = LANG_MENU_GPS_COMPASS_SHOW; 
+                i = 0;
+                while( gps_submenu_items[i].value != (int*)navigate_to_home ) i++;  
+                gps_submenu_items[i].text = LANG_MENU_GPS_NAVI_HOME;
+            }
+        } else {
+            gps_submenu_items[i].text = LANG_MENU_GPS_NAVI_SHOW;
+            init_gps_navigate_to_photo(GPS_STOP);        
+        }
     }
 }
 
-static void navigate_home(int arg)
+static void navigate_to_home(int arg)
 {
-	int i = 0;
-    while( gps_submenu_items[i].value != (int*)navigate_home ) i++;    //find entry
-    if( gps_submenu_items[i].text == LANG_MENU_GPS_NAVI_HOME ) {  //toggle text
-        gps_submenu_items[i].text = LANG_MENU_GPS_NAVI_HOME_END;
-		exit_gpx_record = 0;
-		exit_gps_navi = 0;
-		exit_gps_kompass = 0;
-		gps_navigate_home();
-
-    } else {
-        gps_submenu_items[i].text = LANG_MENU_GPS_NAVI_HOME;
-		exit_gps_navi = 1;
-		exit_gps_kompass = 1;
-		exit_gpx_record = 1;
+    int i = 0;
+    if( conf.gps_on_off ) {      
+        while( gps_submenu_items[i].value != (int*)navigate_to_home ) i++;   //find entry
+        if( gps_submenu_items[i].text == LANG_MENU_GPS_NAVI_HOME ) {         //toggle text
+            if( init_gps_navigate_to_home(GPS_START))
+            {
+                gps_submenu_items[i].text = LANG_MENU_GPS_NAVI_HOME_END;
+                i = 0;
+                while( gps_submenu_items[i].value != (int*)show_compass ) i++;
+                gps_submenu_items[i].text = LANG_MENU_GPS_COMPASS_SHOW; 
+                i = 0;
+                while( gps_submenu_items[i].value != (int*)navigate_to_image ) i++;  
+                gps_submenu_items[i].text = LANG_MENU_GPS_NAVI_SHOW;
+            }
+        } else {
+            gps_submenu_items[i].text = LANG_MENU_GPS_NAVI_HOME;
+            init_gps_navigate_to_home(GPS_STOP);        
+        }
     }
 }
 
 static void mark_timezone(int arg)
 {
-    write_timezone();
+    gps_write_timezone();
 }
 
 static void mark_home(int arg)
 {
-    write_home();
+    gps_write_home();
+}
+
+static void cb_gps_menu_reset()
+{
+    int i;
+    if( conf.gps_on_off == 0 ) {  
+        for( i=0 ; gps_submenu_items[i].value != (int*)gpx_start_stop; i++);
+        gps_submenu_items[i].text = LANG_MENU_GPS_TRACK_START;
+	for( i=0 ; gps_submenu_items[i].value != (int*)navigate_to_home; i++);
+	gps_submenu_items[i].text = LANG_MENU_GPS_NAVI_HOME;
+        for( i=0 ; gps_submenu_items[i].value != (int*)show_compass; i++ );
+        gps_submenu_items[i].text = LANG_MENU_GPS_COMPASS_SHOW;
+    }
 }
 
 static CMenuItem gps_logging_items[] = {
-    MENU_ITEM	(0x2a,LANG_MENU_GPS_TRACK_TIME,				MENUITEM_INT|MENUITEM_F_UNSIGNED|MENUITEM_F_MINMAX,	&conf.gps_track_time, 		MENU_MINMAX(1, 60) ),
+    MENU_ITEM	(0x5f,LANG_MENU_GPS_TRACK_TIME,				MENUITEM_INT|MENUITEM_F_UNSIGNED|MENUITEM_F_MINMAX,	&conf.gps_track_time, 		MENU_MINMAX(1, 60) ),
     MENU_ITEM   (0x0 ,(int)"",                              MENUITEM_SEPARATOR,									0,							0 ),
-    MENU_ITEM	(0x2a,LANG_MENU_GPS_TRACK_SYMBOL,			MENUITEM_BOOL,  									&conf.gps_track_symbol,		0 ),
+    MENU_ITEM	(0x5c,LANG_MENU_GPS_TRACK_SYMBOL,			MENUITEM_BOOL,  									&conf.gps_track_symbol,		0 ),
     MENU_ITEM   (0x0 ,(int)"",                              MENUITEM_SEPARATOR,									0,							0 ),
-    MENU_ITEM	(0x2a,LANG_MENU_GPS_REC_PLAY_SET_1,			MENUITEM_BOOL,          							&conf.gps_rec_play_set_1,	0 ),
-    MENU_ITEM	(0x2a,LANG_MENU_GPS_REC_PLAY_TIME_1,		MENUITEM_INT|MENUITEM_F_UNSIGNED|MENUITEM_F_MINMAX,	&conf.gps_rec_play_time_1,	MENU_MINMAX(1, 60) ),
-    MENU_ITEM	(0x2a,LANG_MENU_GPS_PLAY_DARK_SET_1,		MENUITEM_BOOL,          							&conf.gps_play_dark_set_1,	0 ),
-    MENU_ITEM	(0x2a,LANG_MENU_GPS_PLAY_DARK_TIME_1,		MENUITEM_INT|MENUITEM_F_UNSIGNED|MENUITEM_F_MINMAX,	&conf.gps_play_dark_time_1,	MENU_MINMAX(1, 60) ),
+    MENU_ITEM	(0x5c,LANG_MENU_GPS_REC_PLAY_SET_1,			MENUITEM_BOOL,          							&conf.gps_rec_play_set_1,	0 ),
+    MENU_ITEM	(0x5f,LANG_MENU_GPS_REC_PLAY_TIME_1,		MENUITEM_INT|MENUITEM_F_UNSIGNED|MENUITEM_F_MINMAX,	&conf.gps_rec_play_time_1,	MENU_MINMAX(1, 60) ),
+    MENU_ITEM	(0x5c,LANG_MENU_GPS_PLAY_DARK_SET_1,		MENUITEM_BOOL,          							&conf.gps_play_dark_set_1,	0 ),
+    MENU_ITEM	(0x5f,LANG_MENU_GPS_PLAY_DARK_TIME_1,		MENUITEM_INT|MENUITEM_F_UNSIGNED|MENUITEM_F_MINMAX,	&conf.gps_play_dark_time_1,	MENU_MINMAX(1, 60) ),
     MENU_ITEM   (0x0 ,(int)"",                              MENUITEM_SEPARATOR,									0,							0 ),
     MENU_ITEM   (0x51,LANG_MENU_BACK,                       MENUITEM_UP,                        				0,							0 ),
     {0}
@@ -534,13 +539,13 @@ static CMenu gps_logging_submenu = {0x86,LANG_MENU_GPS_LOGGING, gps_logging_item
 static CMenuItem gps_tagging_items[] = {
     MENU_ITEM	(0x5c,LANG_MENU_GPS_WAYPOINT_SAVE,          MENUITEM_BOOL,          		                    &conf.gps_waypoint_save,	0 ),
     MENU_ITEM   (0x0 ,(int)"",                              MENUITEM_SEPARATOR,									0,							0 ),
-    MENU_ITEM   (0x2a,LANG_MENU_GPS_WAIT_FOR_SIGNAL,		MENUITEM_INT|MENUITEM_F_UNSIGNED|MENUITEM_F_MINMAX,	&conf.gps_wait_for_signal,	MENU_MINMAX(1, 599) ),
-    MENU_ITEM   (0x2a,LANG_MENU_GPS_WAIT_FOR_SIGNAL_TIME,	MENUITEM_INT|MENUITEM_F_UNSIGNED|MENUITEM_F_MINMAX,	&conf.gps_wait_for_signal_time,	MENU_MINMAX(1, 60) ),
+    MENU_ITEM   (0x5f,LANG_MENU_GPS_WAIT_FOR_SIGNAL,		MENUITEM_INT|MENUITEM_F_UNSIGNED|MENUITEM_F_MINMAX,	&conf.gps_wait_for_signal,	MENU_MINMAX(1, 599) ),
+    MENU_ITEM   (0x5f,LANG_MENU_GPS_WAIT_FOR_SIGNAL_TIME,	MENUITEM_INT|MENUITEM_F_UNSIGNED|MENUITEM_F_MINMAX,	&conf.gps_wait_for_signal_time,	MENU_MINMAX(1, 60) ),
     MENU_ITEM   (0x0 ,(int)"",                              MENUITEM_SEPARATOR,									0,							0 ),
-    MENU_ITEM	(0x2a,LANG_MENU_GPS_REC_PLAY_SET,			MENUITEM_BOOL,          							&conf.gps_rec_play_set,		0 ),
-    MENU_ITEM	(0x2a,LANG_MENU_GPS_REC_PLAY_TIME,			MENUITEM_INT|MENUITEM_F_UNSIGNED|MENUITEM_F_MINMAX,	&conf.gps_rec_play_time,	MENU_MINMAX(1, 60) ),
-    MENU_ITEM	(0x2a,LANG_MENU_GPS_PLAY_DARK_SET,			MENUITEM_BOOL,          							&conf.gps_play_dark_set,	0 ),
-    MENU_ITEM	(0x2a,LANG_MENU_GPS_PLAY_DARK_TIME,			MENUITEM_INT|MENUITEM_F_UNSIGNED|MENUITEM_F_MINMAX,	&conf.gps_play_dark_time,	MENU_MINMAX(1, 60) ),
+    MENU_ITEM	(0x5c,LANG_MENU_GPS_REC_PLAY_SET,			MENUITEM_BOOL,          							&conf.gps_rec_play_set,		0 ),
+    MENU_ITEM	(0x5f,LANG_MENU_GPS_REC_PLAY_TIME,			MENUITEM_INT|MENUITEM_F_UNSIGNED|MENUITEM_F_MINMAX,	&conf.gps_rec_play_time,	MENU_MINMAX(1, 60) ),
+    MENU_ITEM	(0x5c,LANG_MENU_GPS_PLAY_DARK_SET,			MENUITEM_BOOL,          							&conf.gps_play_dark_set,	0 ),
+    MENU_ITEM	(0x5f,LANG_MENU_GPS_PLAY_DARK_TIME,			MENUITEM_INT|MENUITEM_F_UNSIGNED|MENUITEM_F_MINMAX,	&conf.gps_play_dark_time,	MENU_MINMAX(1, 60) ),
     MENU_ITEM   (0x0 ,(int)"",                              MENUITEM_SEPARATOR,									0,							0 ),
     MENU_ITEM	(0x5c,LANG_MENU_GPS_COUNTDOWN,          	MENUITEM_BOOL,          							&conf.gps_countdown	,		0 ),
 //    MENU_ITEM	(0x5c,LANG_MENU_GPS_COUNTDOWN_BLINK,      	MENUITEM_BOOL,          							&conf.gps_countdown_blink,	0 ),
@@ -552,9 +557,9 @@ static CMenuItem gps_tagging_items[] = {
 static CMenu gps_tagging_submenu = {0x86,LANG_MENU_GPS_TAGGING, gps_tagging_items };
 
 static CMenuItem gps_navigation_items[] = {
-    MENU_ITEM	(0x2a,LANG_MENU_GPS_KOMPASS_SMOOTH,			MENUITEM_INT|MENUITEM_F_UNSIGNED|MENUITEM_F_MINMAX,	&conf.gps_kompass_smooth,	MENU_MINMAX(1, 40) ),
-    MENU_ITEM	(0x2a,LANG_MENU_GPS_KOMPASS_TIME,			MENUITEM_INT|MENUITEM_F_UNSIGNED|MENUITEM_F_MINMAX,	&conf.gps_kompass_time, 	MENU_MINMAX(1, 60) ),
-    MENU_ITEM	(0x2a,LANG_MENU_GPS_NAVI_TIME,				MENUITEM_INT|MENUITEM_F_UNSIGNED|MENUITEM_F_MINMAX,	&conf.gps_navi_time,		MENU_MINMAX(1, 60) ),
+    MENU_ITEM	(0x5f,LANG_MENU_GPS_COMPASS_SMOOTH,			MENUITEM_INT|MENUITEM_F_UNSIGNED|MENUITEM_F_MINMAX,	&conf.gps_compass_smooth,	MENU_MINMAX(1, 40) ),
+    MENU_ITEM	(0x5f,LANG_MENU_GPS_COMPASS_TIME,			MENUITEM_INT|MENUITEM_F_UNSIGNED|MENUITEM_F_MINMAX,	&conf.gps_compass_time, 	MENU_MINMAX(1, 60) ),
+    MENU_ITEM	(0x5f,LANG_MENU_GPS_NAVI_TIME,				MENUITEM_INT|MENUITEM_F_UNSIGNED|MENUITEM_F_MINMAX,	&conf.gps_navi_time,		MENU_MINMAX(1, 60) ),
     MENU_ITEM   (0x0 ,(int)"",                              MENUITEM_SEPARATOR,									0,							0 ),
     MENU_ITEM	(0x2a,LANG_MENU_GPS_MARK_HOME,              MENUITEM_PROC,          		(int*)mark_home,					0 ),
     MENU_ITEM   (0x0 ,(int)"",                              MENUITEM_SEPARATOR,									0,							0 ),
@@ -567,15 +572,15 @@ static CMenu gps_navigation_submenu = {0x86,LANG_MENU_GPS_NAVIGATION, gps_naviga
 static const char* gui_gps_sat_fix[] =                  { "immer", "2D", "3D", "2D/3D" };
 
 static CMenuItem gps_values_items[] = {
-    MENU_ITEM	(0x2a,LANG_MENU_GPS_BATT,					MENUITEM_INT|MENUITEM_F_UNSIGNED|MENUITEM_F_MINMAX,	&conf.gps_batt,				MENU_MINMAX(0, 99) ),
-    MENU_ITEM	(0x2a,LANG_MENU_GPS_BATT_WARNING,			MENUITEM_BOOL,  									&conf.gps_batt_warn,		0 ),
-    MENU_ITEM	(0x2a,LANG_MENU_GPS_BEEP_WARNING,			MENUITEM_BOOL,  									&conf.gps_beep_warn,		0 ),
+    MENU_ITEM	(0x5f,LANG_MENU_GPS_BATT,					MENUITEM_INT|MENUITEM_F_UNSIGNED|MENUITEM_F_MINMAX,	&conf.gps_batt,				MENU_MINMAX(0, 99) ),
+    MENU_ITEM	(0x5c,LANG_MENU_GPS_BATT_WARNING,			MENUITEM_BOOL,  									&conf.gps_batt_warn,		0 ),
+    MENU_ITEM	(0x5c,LANG_MENU_GPS_BEEP_WARNING,			MENUITEM_BOOL,  									&conf.gps_beep_warn,		0 ),
     MENU_ITEM   (0x0 ,(int)"",                              MENUITEM_SEPARATOR,									0,							0 ),
-    MENU_ENUM2  (0x69,LANG_MENU_GPS_2D_3D_FIX,				&conf.gps_2D_3D_fix,   								gui_gps_sat_fix ),
+    MENU_ENUM2  (0x5f,LANG_MENU_GPS_2D_3D_FIX,				&conf.gps_2D_3D_fix,   								gui_gps_sat_fix ),
     MENU_ITEM   (0x0 ,(int)"",                              MENUITEM_SEPARATOR,									0,							0 ),
-    MENU_ITEM	(0x2a,LANG_MENU_GPS_SYMBOL_SHOW,			MENUITEM_BOOL,  									&conf.gps_show_symbol,		0 ),
+    MENU_ITEM	(0x5c,LANG_MENU_GPS_SYMBOL_SHOW,			MENUITEM_BOOL,  									&conf.gps_show_symbol,		0 ),
     MENU_ITEM   (0x0 ,(int)"",                              MENUITEM_SEPARATOR,									0,							0 ),
-    MENU_ITEM	(0x2a,LANG_MENU_GPS_TEST_TIMEZONE,			MENUITEM_BOOL,  									&conf.gps_test_timezone,	0 ),
+    MENU_ITEM	(0x5c,LANG_MENU_GPS_TEST_TIMEZONE,			MENUITEM_BOOL,  									&conf.gps_test_timezone,	0 ),
     MENU_ITEM	(0x2a,LANG_MENU_GPS_MARK_TIMEZONE,          MENUITEM_PROC,          		                    (int*)mark_timezone,		0 ),
     MENU_ITEM   (0x0 ,(int)"",                              MENUITEM_SEPARATOR,				                    0,							0 ),
     MENU_ITEM   (0x51,LANG_MENU_BACK,                       MENUITEM_UP,                        				0,							0 ),
@@ -585,23 +590,23 @@ static CMenuItem gps_values_items[] = {
 static CMenu gps_values_submenu = {0x86,LANG_MENU_GPS_VALUES, gps_values_items };
 
 static CMenuItem gps_submenu_items[] = {
-    MENU_ITEM	(0x2a,LANG_MENU_GPS_ON_OFF,					MENUITEM_BOOL,  				&conf.gps_on_off,					0 ),
+    MENU_ITEM	(0x5c,LANG_MENU_GPS_ON_OFF,                 MENUITEM_BOOL | MENUITEM_ARG_CALLBACK,  				&conf.gps_on_off,  (int)cb_gps_menu_reset  ),
     MENU_ITEM   (0x0 ,(int)"",                              MENUITEM_SEPARATOR,				0,									0 ),
-    MENU_ITEM	(0x2a,LANG_MENU_GPS_KOMPASS_SHOW,           MENUITEM_PROC,  				(int*)show_kompass,					0 ),
-    MENU_ITEM	(0x2a,LANG_MENU_GPS_NAVI_SHOW,              MENUITEM_PROC,          		(int*)show_navi,					0 ),
-    MENU_ITEM	(0x2a,LANG_MENU_GPS_NAVI_HOME,              MENUITEM_PROC,          		(int*)navigate_home,				0 ),
+    MENU_ITEM	(0x2a,LANG_MENU_GPS_COMPASS_SHOW,           MENUITEM_PROC,  				(int*)show_compass,					0 ),
+    MENU_ITEM	(0x2a,LANG_MENU_GPS_NAVI_SHOW,              MENUITEM_PROC,          		(int*)navigate_to_image,			0 ),
+    MENU_ITEM	(0x2a,LANG_MENU_GPS_NAVI_HOME,              MENUITEM_PROC,          		(int*)navigate_to_home,				0 ),
     MENU_ITEM	(0x2a,LANG_MENU_GPS_TRACK_START,            MENUITEM_PROC,          		(int*)gpx_start_stop,				0 ),
     MENU_ITEM   (0x0 ,(int)"",                              MENUITEM_SEPARATOR,				0,									0 ),
-    MENU_ITEM   (0x2a,LANG_MENU_GPS_VALUES,               	MENUITEM_SUBMENU,               &gps_values_submenu,            	0 ),
-    MENU_ITEM   (0x2a,LANG_MENU_GPS_LOGGING,               	MENUITEM_SUBMENU,               &gps_logging_submenu,            	0 ),
-    MENU_ITEM   (0x2a,LANG_MENU_GPS_TAGGING,               	MENUITEM_SUBMENU,               &gps_tagging_submenu,            	0 ),
-    MENU_ITEM   (0x2a,LANG_MENU_GPS_NAVIGATION,            	MENUITEM_SUBMENU,               &gps_navigation_submenu,            0 ),
+    MENU_ITEM   (0x28,LANG_MENU_GPS_VALUES,               	MENUITEM_SUBMENU,               &gps_values_submenu,            	0 ),
+    MENU_ITEM   (0x28,LANG_MENU_GPS_LOGGING,               	MENUITEM_SUBMENU,               &gps_logging_submenu,            	0 ),
+    MENU_ITEM   (0x28,LANG_MENU_GPS_TAGGING,               	MENUITEM_SUBMENU,               &gps_tagging_submenu,            	0 ),
+    MENU_ITEM   (0x28,LANG_MENU_GPS_NAVIGATION,            	MENUITEM_SUBMENU,               &gps_navigation_submenu,            0 ),
     MENU_ITEM   (0x0 ,(int)"",                              MENUITEM_SEPARATOR,				0,									0 ),
     MENU_ITEM	(0x51,LANG_MENU_BACK,                       MENUITEM_UP, 					0,                                  0 ),
     {0}
 };
 
-static CMenu gps_submenu = {0x2a,LANG_MENU_GPS, gps_submenu_items };
+static CMenu gps_submenu = {0x86,LANG_MENU_GPS, gps_submenu_items };
 
 #endif
 
@@ -657,19 +662,115 @@ static CMenu reader_submenu = {0x37,LANG_MENU_READ_TITLE, reader_submenu_items }
 
 //-------------------------------------------------------------------
 
-static CMenuItem games_submenu_items[] = {
-    MENU_ITEM(0x38,LANG_MENU_GAMES_REVERSI,           MENUITEM_PROC,  module_run, "reversi.flt" ),
-    MENU_ITEM(0x38,LANG_MENU_GAMES_SOKOBAN,           MENUITEM_PROC,  module_run, "sokoban.flt" ),
-    MENU_ITEM(0x38,LANG_MENU_GAMES_CONNECT4,          MENUITEM_PROC,  module_run, "4wins.flt" ),
-    MENU_ITEM(0x38,LANG_MENU_GAMES_MASTERMIND,        MENUITEM_PROC,  module_run, "mastmind.flt" ),
-    MENU_ITEM(0x38,"Snake" ,                          MENUITEM_PROC,  module_run, "snake.flt" ),
-    MENU_ITEM(0x38,LANG_MENU_GAMES_TETRIS,            MENUITEM_PROC,  module_run, "tetris.flt" ),
-	MENU_ITEM(0x38,"Sudoku",						  MENUITEM_PROC,  module_run, "sudoku.flt" ),
-    MENU_ITEM(0x51,LANG_MENU_BACK,                    MENUITEM_UP, 0, 0 ),
-    {0}
-};
+static CMenu games_submenu = {0x38,LANG_MENU_MISC_GAMES, 0 };
+static CMenu tools_submenu = {0x28,LANG_MENU_MISC_TOOLS, 0 };
 
-static CMenu games_submenu = {0x38,LANG_MENU_GAMES_TITLE, games_submenu_items };
+int submenu_sort(const void* v1, const void* v2)
+{
+    CMenuItem *mi1 = (CMenuItem*)v1;
+    CMenuItem *mi2 = (CMenuItem*)v2;
+
+    return strcmp(lang_str(mi1->text), lang_str(mi2->text));
+}
+
+static CMenuItem* create_module_menu(int mtype, char symbol)
+{
+    DIR             *d;
+    struct dirent   *de;
+    int             mcnt = 0;
+    ModuleInfo      mi;
+    char            modName[33];
+    char            *nm;
+
+    // Open directory & count # of game modules
+    d = opendir("A/CHDK/MODULES");
+
+    if (d)
+    {
+        while ((de = readdir(d)))
+        {
+            if ((de->d_name[0] != 0xE5) && (strcmp(de->d_name,".") != 0) && (strcmp(de->d_name,"..") != 0))
+            {
+                get_module_info(de->d_name, &mi, 0, 0);
+                if ((mi.moduleType & MTYPE_MASK) == mtype)
+                    mcnt++;
+            }
+        }
+
+        closedir(d);
+    }
+
+    // Allocate memory for menu
+    CMenuItem *submenu = malloc((mcnt+2) * sizeof(CMenuItem));
+    memset(submenu, 0, (mcnt+2) * sizeof(CMenuItem));
+
+    // Re-open directory & create game menu
+    d = opendir("A/CHDK/MODULES");
+
+    if (d)
+    {
+        mcnt = 0;
+        while ((de = readdir(d)))
+        {
+            if ((de->d_name[0] != 0xE5) && (strcmp(de->d_name,".") != 0) && (strcmp(de->d_name,"..") != 0))
+            {
+                get_module_info(de->d_name, &mi, modName, 33);
+                if ((mi.moduleType & MTYPE_MASK) == mtype)
+                {
+                    submenu[mcnt].symbol = (mi.symbol != 0) ? mi.symbol : symbol;
+                    if (mi.moduleType & MTYPE_SUBMENU_TOOL)
+                        submenu[mcnt].type = MENUITEM_SUBMENU_PROC;
+                    else
+                        submenu[mcnt].type = MENUITEM_PROC;
+                    if (mi.moduleName < 0)
+                        submenu[mcnt].text = -mi.moduleName;    // LANG string
+                    else
+                    {
+                        nm = malloc(strlen(modName)+1);
+                        strcpy(nm, modName);
+                        submenu[mcnt].text = (int)nm;
+                    }
+                    submenu[mcnt].value = (int*)module_run;
+                    nm = malloc(strlen(de->d_name))+1;
+                    strcpy(nm, de->d_name);
+                    submenu[mcnt].arg = (int)nm;
+                    mcnt++;
+                }
+            }
+        }
+
+        closedir(d);
+
+        submenu[mcnt].symbol = 0x51;
+        submenu[mcnt].type = MENUITEM_UP;
+        submenu[mcnt].text = LANG_MENU_BACK;
+    }
+
+    if (mcnt > 0)
+    {
+        extern int submenu_sort_arm(const void* v1, const void* v2);
+        qsort(submenu, mcnt, sizeof(CMenuItem), submenu_sort_arm);
+    }
+
+    return submenu;
+}
+
+static void gui_module_menu(CMenu *m, int type)
+{
+    if (m->menu == 0)
+        m->menu = create_module_menu(type, m->symbol);
+    gui_activate_sub_menu(m);
+}
+
+static void gui_games_menu(int arg)
+{
+    gui_module_menu(&games_submenu, MTYPE_GAME);
+}
+
+static void gui_tools_menu(int arg)
+{
+    gui_module_menu(&tools_submenu, MTYPE_TOOL);
+}
 
 //-------------------------------------------------------------------
 
@@ -818,39 +919,6 @@ static void gui_unsafe_io_warning()
 #endif
 
 //-------------------------------------------------------------------
-static void gui_menuproc_eyefi_available_networks()
-{
-    libeyefi->availableNetworks();
-}
-
-static void gui_menuproc_eyefi_configured_networks()
-{
-    libeyefi->configuredNetworks();
-}
-
-static void gui_menuproc_eyefi_wlan_off()
-{
-    libeyefi->wlanOnOff(0);
-}
-
-static void gui_menuproc_eyefi_wlan_on()
-{
-    libeyefi->wlanOnOff(1);
-}
-
-static CMenuItem eyefi_submenu_items[] = {
-    MENU_ITEM   (0x5c,LANG_MENU_EYEFI_AVAILABLE_NETWORKS,   MENUITEM_PROC,          gui_menuproc_eyefi_available_networks,  0 ),
-    MENU_ITEM   (0x5c,LANG_MENU_EYEFI_CONFIGURED_NETWORKS,  MENUITEM_PROC,          gui_menuproc_eyefi_configured_networks, 0 ),
-    MENU_ITEM   (0x5c,LANG_FORCE_EYEFI_WLAN_OFF,            MENUITEM_PROC,          gui_menuproc_eyefi_wlan_off,            0 ),
-    MENU_ITEM   (0x5c,LANG_FORCE_EYEFI_WLAN_ON,             MENUITEM_PROC,          gui_menuproc_eyefi_wlan_on,             0 ),
-    MENU_ITEM   (0x51,LANG_MENU_BACK,                       MENUITEM_UP,            0,                                      0 ),
-    {0}
-};
-
-static CMenu eyefi_submenu = {0x21,LANG_MENU_EYEFI_TITLE, eyefi_submenu_items };
-
-//-------------------------------------------------------------------
-
 static const char* gui_console_show_enum[]={ "ALT", "Always" };
 
 static void gui_console_clear(int arg)
@@ -879,9 +947,9 @@ static CMenu console_settings_submenu = {0x28,LANG_MENU_CONSOLE_SETTINGS, consol
 static CMenuItem misc_submenu_items[] = {
     MENU_ITEM   (0x35,LANG_MENU_MISC_FILE_BROWSER,          MENUITEM_PROC,                  gui_draw_fselect,                   0 ),
     MENU_ITEM   (0x28,LANG_MENU_MODULES,                    MENUITEM_SUBMENU,               &module_submenu,                    0 ),
-    MENU_ITEM   (0x36,LANG_MENU_MISC_CALENDAR,              MENUITEM_PROC,                  module_run, "calend.flt" ),
     MENU_ITEM   (0x37,LANG_MENU_MISC_TEXT_READER,           MENUITEM_SUBMENU,               &reader_submenu,                    0 ),
-    MENU_ITEM   (0x38,LANG_MENU_MISC_GAMES,                 MENUITEM_SUBMENU,               &games_submenu,                     0 ),
+    MENU_ITEM   (0x38,LANG_MENU_MISC_GAMES,                 MENUITEM_SUBMENU_PROC,          gui_games_menu,                     0 ),
+    MENU_ITEM   (0x28,LANG_MENU_MISC_TOOLS,                 MENUITEM_SUBMENU_PROC,          gui_tools_menu,                     0 ),
     MENU_ITEM   (0x28,LANG_MENU_CONSOLE_SETTINGS,           MENUITEM_SUBMENU,               &console_settings_submenu, 0 ),
 #if CAM_SWIVEL_SCREEN
     MENU_ITEM   (0x5c,LANG_MENU_MISC_FLASHLIGHT,            MENUITEM_BOOL,                  &conf.flashlight, 0 ),
@@ -894,8 +962,10 @@ static CMenuItem misc_submenu_items[] = {
 #if defined(CAM_IS_VID_REC_WORKS)
     MENU_ITEM   (0x5c,LANG_MENU_ENABLE_UNSAFE_IO,           MENUITEM_BOOL|MENUITEM_ARG_CALLBACK, &conf.allow_unsafe_io, (int)gui_unsafe_io_warning ),
 #endif
+#if defined(CAM_DRYOS)
+    MENU_ITEM   (0x5c,LANG_MENU_DISABLE_LFN_SUPPORT,        MENUITEM_BOOL,                  &conf.disable_lfn_parser, 0 ),
+#endif
     MENU_ITEM   (0x33,LANG_SD_CARD,                         MENUITEM_SUBMENU,               &sdcard_submenu,                    0 ),
-    MENU_ITEM   (0x2f,LANG_EYEFI,                           MENUITEM_SUBMENU,               &eyefi_submenu,                     0 ),
 #ifdef OPT_DEBUGGING
     MENU_ITEM   (0x2a,LANG_MENU_MAIN_DEBUG,                 MENUITEM_SUBMENU,               &debug_submenu,                     0 ),
 #endif
@@ -1519,12 +1589,12 @@ static CMenu grid_submenu = {0x2f,LANG_MENU_GRID_TITLE, grid_submenu_items };
 
 static void gui_menu_run_palette(int arg)
 {
-    libpalette->show_palette(PALETTE_MODE_DEFAULT, 0, NULL);
+    libpalette->show_palette(PALETTE_MODE_DEFAULT, (chdkColor){0,0}, NULL);
 }
 
 static void gui_menu_test_palette(int arg)
 {
-    libpalette->show_palette(PALETTE_MODE_TEST, 0, NULL);
+    libpalette->show_palette(PALETTE_MODE_TEST, (chdkColor){0,0}, NULL);
 }
 
 static void gui_menu_reset_colors_selected(unsigned int btn)
@@ -1941,7 +2011,6 @@ const char* gui_alt_mode_button_enum(int change, int arg)
         i=0;
 
     conf.alt_mode_button = keys[i];
-    kbd_set_alt_mode_key_mask(conf.alt_mode_button);
     return names[i];
 }
 #endif
@@ -2006,7 +2075,7 @@ static CMenuItem chdk_settings_menu_items[] = {
     MENU_ITEM   (0x28,LANG_MENU_MENU_SETTINGS,              MENUITEM_SUBMENU,   &menu_settings_submenu, 0 ),
     MENU_ITEM   (0x2f,LANG_MENU_OSD_GRID_PARAMS,            MENUITEM_SUBMENU,   &grid_submenu, 0 ),
 #ifdef CAM_HAS_GPS
-    MENU_ITEM	(0x2a,LANG_MENU_GPS,                        MENUITEM_SUBMENU,	&gps_submenu,		0 ),
+    MENU_ITEM	(0x28,LANG_MENU_GPS,                        MENUITEM_SUBMENU,	&gps_submenu,		0 ),
 #endif
 #if CAM_REMOTE
     MENU_ITEM   (0x86,LANG_MENU_REMOTE_PARAM,               MENUITEM_SUBMENU,   &remote_submenu, 0 ),
@@ -2122,18 +2191,6 @@ static const char *text[] =
     "Camera: " PLATFORM " - " PLATFORMSUB
 };
 
-static const color logo_colors[8] = 
-{
-    COLOR_BLACK,
-    COLOR_RED_DK,
-    COLOR_RED,
-    COLOR_GREY,
-    COLOR_GREY_LT,
-    COLOR_RED_LT,
-    COLOR_TRANSPARENT,
-    COLOR_WHITE
-};
-
 static void init_splash()
 {
     gui_splash = (conf.splash_show) ? SPLASH_TIME : 0;
@@ -2166,12 +2223,24 @@ static void gui_draw_splash()
 {
     coord x, y;
     int i;
-    color cl = MAKE_COLOR(COLOR_RED, COLOR_WHITE);
+    twoColors cl = MAKE_COLOR(COLOR_RED, COLOR_WHITE);
+
+    const color logo_colors[8] =
+    {
+        COLOR_BLACK,
+        COLOR_RED_DK,
+        COLOR_RED,
+        COLOR_GREY,
+        COLOR_GREY_LT,
+        COLOR_RED_LT,
+        COLOR_TRANSPARENT,
+        COLOR_WHITE
+    };
 
     x = (camera_screen.width-logo_text_width)>>1; 
     y = ((camera_screen.height-logo_text_height)>>1) + 20;
 
-    draw_filled_round_rect(x, y, x+logo_text_width, y+logo_text_height, MAKE_COLOR(COLOR_RED, COLOR_RED));
+    draw_rectangle(x, y, x+logo_text_width, y+logo_text_height, MAKE_COLOR(COLOR_RED, COLOR_RED), RECT_BORDER0|DRAW_FILLED|RECT_ROUND_CORNERS);
     for (i=0; i<sizeof(text)/sizeof(text[0]); ++i)
     {
         draw_string(x+((logo_text_width-strlen(text[i])*FONT_WIDTH)>>1), y+i*FONT_HEIGHT+4, text[i], cl);
@@ -2348,7 +2417,7 @@ static char* gui_shortcut_text(int button)
     }
 }
 
-static int shortcut_text(int x, int y, int button, int func_str, const char *state, color col)
+static int shortcut_text(int x, int y, int button, int func_str, const char *state, twoColors col)
 {
     buf[0] = 0;
     if (state)
@@ -2399,11 +2468,14 @@ static void gui_draw_alt_helper()
     int y = FONT_HEIGHT;
     int x = ((CAM_SCREEN_WIDTH/2)-(FONT_WIDTH*35/2));
 
+    twoColors col = user_color(conf.menu_color);
+    twoColors hdr_col = user_color(conf.menu_title_color);
+
     sprintf(buf,lang_str(LANG_HELP_HEADER),
             lang_str(LANG_HELP_ALT_SHORTCUTS),
             (conf.user_menu_enable && conf.user_menu_as_root)?lang_str(LANG_HELP_USER_MENU):lang_str(LANG_HELP_CHDK_MENU)); 
     buf[35] = 0;
-    draw_string(x, y, buf, conf.menu_title_color);
+    draw_string(x, y, buf, hdr_col);
     y += FONT_HEIGHT;
 
     if (conf.user_menu_enable)
@@ -2412,76 +2484,76 @@ static void gui_draw_alt_helper()
                 lang_str(LANG_HELP_HALF_PRESS),
                 (conf.user_menu_enable && conf.user_menu_as_root)?lang_str(LANG_HELP_CHDK_MENU):lang_str(LANG_HELP_USER_MENU)); 
         buf[35] = 0;
-        draw_string(x, y, buf, conf.menu_color);
+        draw_string(x, y, buf, col);
         y += FONT_HEIGHT;
     }
 
-    draw_string(x, y, lang_str(LANG_HELP_SCRIPTS), conf.menu_color);
+    draw_string(x, y, lang_str(LANG_HELP_SCRIPTS), col);
     y += FONT_HEIGHT;
 
 #if !defined(CAM_HAS_MANUAL_FOCUS) && defined(SHORTCUT_MF_TOGGLE)
-    y = shortcut_text(x, y, SHORTCUT_MF_TOGGLE,LANG_HELP_MANUAL_FOCUS,gui_on_off_enum(0,&conf.subj_dist_override_koef), conf.menu_color);
+    y = shortcut_text(x, y, SHORTCUT_MF_TOGGLE,LANG_HELP_MANUAL_FOCUS,gui_on_off_enum(0,&conf.subj_dist_override_koef), col);
 #endif
 
     if (shooting_get_common_focus_mode())           // Check in manual focus mode
     {
         sprintf(buf,lang_str(LANG_HELP_FOCUS),gui_shortcut_text(SHORTCUT_SET_INFINITY),gui_shortcut_text(SHORTCUT_SET_HYPERFOCAL));
-        draw_string(x, y, buf, conf.menu_color);
+        draw_string(x, y, buf, col);
         y += FONT_HEIGHT;
     }
 
 #if !CAM_HAS_ERASE_BUTTON
 #ifdef OPT_DEBUGGING
     if (conf.debug_shortcut_action)
-        y = shortcut_text(x, y, SHORTCUT_TOGGLE_RAW,LANG_MENU_DEBUG_SHORTCUT_ACTION,gui_debug_shortcut_modes[conf.debug_shortcut_action], conf.menu_color);
+        y = shortcut_text(x, y, SHORTCUT_TOGGLE_RAW,LANG_MENU_DEBUG_SHORTCUT_ACTION,gui_debug_shortcut_modes[conf.debug_shortcut_action], col);
     else
 #endif
     if (shooting_get_common_focus_mode())           // Check in manual focus mode
     {
 #if CAM_HAS_ZOOM_LEVER
         if (SHORTCUT_TOGGLE_RAW != SHORTCUT_SET_INFINITY)
-            y = shortcut_text(x, y, SHORTCUT_TOGGLE_RAW, LANG_HELP_INF_FOCUS, 0, conf.menu_color);
+            y = shortcut_text(x, y, SHORTCUT_TOGGLE_RAW, LANG_HELP_INF_FOCUS, 0, col);
 #else
-        y = shortcut_text(x, y, SHORTCUT_TOGGLE_RAW, LANG_HELP_CHG_FOCUS_FACTOR, 0, conf.menu_color);
+        y = shortcut_text(x, y, SHORTCUT_TOGGLE_RAW, LANG_HELP_CHG_FOCUS_FACTOR, 0, col);
 #endif
     }
     else
-        y = shortcut_text(x, y, SHORTCUT_TOGGLE_RAW,LANG_MENU_RAW_SAVE,(conf.save_raw?(conf.dng_raw?"DNG":"RAW"):"Off"), conf.menu_color);
+        y = shortcut_text(x, y, SHORTCUT_TOGGLE_RAW,LANG_MENU_RAW_SAVE,(conf.save_raw?(conf.dng_raw?"DNG":"RAW"):"Off"), col);
 #else
 #ifdef OPT_DEBUGGING
     if (conf.debug_shortcut_action)
-        y = shortcut_text(x, y, SHORTCUT_TOGGLE_RAW,LANG_MENU_DEBUG_SHORTCUT_ACTION,gui_debug_shortcut_modes[conf.debug_shortcut_action], conf.menu_color);
+        y = shortcut_text(x, y, SHORTCUT_TOGGLE_RAW,LANG_MENU_DEBUG_SHORTCUT_ACTION,gui_debug_shortcut_modes[conf.debug_shortcut_action], col);
     else
 #endif
-        y = shortcut_text(x, y, SHORTCUT_TOGGLE_RAW,LANG_MENU_RAW_SAVE,(conf.save_raw?(conf.dng_raw?"DNG":"RAW"):"Off"), conf.menu_color);
+        y = shortcut_text(x, y, SHORTCUT_TOGGLE_RAW,LANG_MENU_RAW_SAVE,(conf.save_raw?(conf.dng_raw?"DNG":"RAW"):"Off"), col);
 #endif
 
-    y = shortcut_text(x, y, 0 ,LANG_HELP_HALF_PRESS, 0, conf.menu_title_color);
+    y = shortcut_text(x, y, 0 ,LANG_HELP_HALF_PRESS, 0, hdr_col);
 
     if ( conf.enable_shortcuts)
     {
-        y = shortcut_text(x, y, SHORTCUT_DISABLE_OVERRIDES,LANG_MENU_OVERRIDE_DISABLE,gui_override_disable_modes[conf.override_disable], conf.menu_color);
-        y = shortcut_text(x, y, SHORTCUT_TOGGLE_HISTO,LANG_MENU_HISTO_SHOW,gui_histo_show_modes[conf.show_histo], conf.menu_color);
-        y = shortcut_text(x, y, SHORTCUT_TOGGLE_ZEBRA,LANG_MENU_ZEBRA_DRAW,gui_on_off_enum(0,&conf.zebra_draw), conf.menu_color);
-        y = shortcut_text(x, y, SHORTCUT_TOGGLE_OSD,LANG_MENU_OSD_SHOW,gui_on_off_enum(0,&conf.show_osd), conf.menu_color);
+        y = shortcut_text(x, y, SHORTCUT_DISABLE_OVERRIDES,LANG_MENU_OVERRIDE_DISABLE,gui_override_disable_modes[conf.override_disable], col);
+        y = shortcut_text(x, y, SHORTCUT_TOGGLE_HISTO,LANG_MENU_HISTO_SHOW,gui_histo_show_modes[conf.show_histo], col);
+        y = shortcut_text(x, y, SHORTCUT_TOGGLE_ZEBRA,LANG_MENU_ZEBRA_DRAW,gui_on_off_enum(0,&conf.zebra_draw), col);
+        y = shortcut_text(x, y, SHORTCUT_TOGGLE_OSD,LANG_MENU_OSD_SHOW,gui_on_off_enum(0,&conf.show_osd), col);
     }
     else
     {
-        y = shortcut_text(x, y, 0,LANG_HELP_SHORTCUTS_DISABLED, 0, conf.menu_color);
+        y = shortcut_text(x, y, 0,LANG_HELP_SHORTCUTS_DISABLED, 0, col);
     }
 
     if (conf.hide_osd == 0)
-        y = shortcut_text(x, y, KEY_DISPLAY, LANG_HELP_HIDE_OSD, 0, conf.menu_color);
+        y = shortcut_text(x, y, KEY_DISPLAY, LANG_HELP_HIDE_OSD, 0, col);
 
     if (is_menu_shortcut)
-        y = shortcut_text(x, y, 0 ,LANG_HELP_NOT_ALT, 0, conf.menu_color);
+        y = shortcut_text(x, y, 0 ,LANG_HELP_NOT_ALT, 0, col);
 }
 
 #endif
 
 //-------------------------------------------------------------------
 
-void gui_chdk_draw()
+void gui_chdk_draw(int force_redraw)
 {
     static int clear_for_title = 1;
 
@@ -2493,14 +2565,17 @@ void gui_chdk_draw()
 
     if (camera_info.state.osd_title_line) 
     {
+        int w = camera_screen.disp_width;
 #ifdef CAM_DISP_ALT_TEXT
         script_get_alt_text(buf);
-        draw_string(((CAM_SCREEN_WIDTH/2)-(FONT_WIDTH*strlen(buf)/2)), (CAM_SCREEN_HEIGHT-FONT_HEIGHT), buf, MAKE_COLOR(COLOR_RED, COLOR_WHITE));
+        w = draw_string_justified(camera_screen.disp_left, camera_screen.height-FONT_HEIGHT,
+                                  buf, MAKE_COLOR(COLOR_RED, COLOR_WHITE), 0, w, TEXT_CENTER) - camera_screen.disp_left;
 #endif     
 
         if (camera_info.state.mode_rec || camera_info.state.mode_play)
         {
-            draw_txt_string(CAM_TS_BUTTON_BORDER/FONT_WIDTH, 14, script_title, conf.menu_color);
+            // Draw script title (up to <ALT> text, if shown)
+            draw_string_clipped(camera_screen.disp_left, camera_screen.height-FONT_HEIGHT, script_title, user_color(conf.menu_color), w);
         }
         clear_for_title = 1;   
     }
@@ -2510,7 +2585,7 @@ void gui_chdk_draw()
         clear_for_title = 0;
     }
 
-    console_draw();
+    console_draw(force_redraw);
 }
 
 //-------------------------------------------------------------------
@@ -2757,7 +2832,7 @@ extern int no_modules_flag;
 void gui_draw_no_module_warning()
 {
     if ( no_modules_flag == 1 ) {
-        draw_txt_string(1, 1, lang_str(LANG_ERROR_MISSING_MODULES), conf.osd_color_warn);
+        draw_string(FONT_WIDTH, FONT_HEIGHT, lang_str(LANG_ERROR_MISSING_MODULES), user_color(conf.osd_color_warn));
     }
 }
 
@@ -2778,7 +2853,7 @@ void gui_chdk_kbd_process_menu_btn()
 
 //-------------------------------------------------------------------
 // GUI handler for <ALT> mode
-gui_handler altGuiHandler = { GUI_MODE_ALT, gui_chdk_draw, gui_chdk_kbd_process, gui_chdk_kbd_process_menu_btn, 0, };
+gui_handler altGuiHandler = { GUI_MODE_ALT, gui_chdk_draw, gui_chdk_kbd_process, gui_chdk_kbd_process_menu_btn, 0, 0, };
 
 //-------------------------------------------------------------------
 // Main GUI redraw function, perform common initialisation then calls the redraw handler for the mode
@@ -2825,7 +2900,7 @@ void gui_redraw()
     gui_draw_no_module_warning();
 
 // DEBUG: uncomment if you want debug values always on top
-    //gui_draw_debug_vals_osd();
+//gui_draw_debug_vals_osd();
 
     // Call redraw handler
     if (gui_mode->redraw)
@@ -2854,6 +2929,14 @@ int gui_kbd_process()
         // Call mode handler for other buttons
         if (gui_mode->kbd_process) return gui_mode->kbd_process();
     }
+    return 0;
+}
+
+// Handle touch screen presses
+int gui_touch_process(int x, int y)
+{
+    if (gui_mode && gui_mode->touch_handler)
+        return gui_mode->touch_handler(x, y);
     return 0;
 }
 

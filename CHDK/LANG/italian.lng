@@ -125,8 +125,6 @@
  99 "Abilita auto scorrimento"
 100 "Ritardo autoscorrimento(sec)"
 
-101 "Giochi
-
 102 "Reversi"
 103 "Sokoban"
 
@@ -623,8 +621,8 @@
 532	"La camera si spegnerà tra  %02d secondi!"
 533	"Spegnimento automatico annullato!"
 534	"Camera in attesa segnale GPS per %01d:%02d"
-535	"Navigazione verso casa non possibile!"
-536	"Impossibile navigare verso al foto: %s!"
+535	"Navigazione verso\n casa non possibile!"
+536	"Impossibile navigare\n verso al foto: %s!"
 537	"Distanza     = %i m"
 538	"Durata       = %i:%i:%i"
 539	"velocità     = %s km/h"
@@ -707,7 +705,6 @@
 597 "Aggiungi modulo al menu utente"
 598 "Rimuovi elemento attuale dal menu utente"
 
-599 "EyeFi"
 600 "Operazioni EyeFi"
 601 "Reti disponibili"
 602 "Reti configurate"

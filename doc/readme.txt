@@ -56,10 +56,28 @@ Why would I want to use CHDK?
 
 What are scripts? Scripts are BASIC language programs that give you the ability to control the operation of the camera under program control. They have been used to add or extend the native capability of the camera: more flexible intervalometers, extended-range exposure compensation, extended bracketing ability, lightning photography, etc. See the script pages for more details.
 
-// Highly beta :)
+************************************
+IXUS160 / ELPH160 Notes 
+************************************
+To enter CHDK <ALT> mode use the [>] Play button.
+This may be changed to Video in the options, but this conflicts with some shortcuts.
 
-ALT key: playback
-RAW toggle: video
+This camera does not have an adjustable aperture. It does have an ND filter
+
+This is a beta port, use at your own risk!
+
+TESTED
+******
+
+NOT IMPLEMENTED
+***************
+exmem support (note, camera has ~1.7 mb regular heap free on startup with CHDK)
+
+OTHER ISSUES
+************
+
+KNOWN BUGS
+**********
 ********************************
 
 02 - Installation

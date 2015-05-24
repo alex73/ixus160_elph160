@@ -20,7 +20,7 @@ void gui_read_draw();
 void gui_read_kbd_leave();
 
 gui_handler GUI_MODE_READ = 
-/*GUI_MODE_READ*/   { GUI_MODE_MODULE, gui_read_draw, gui_read_kbd_process, gui_read_kbd_process_menu_btn, 0 };
+/*GUI_MODE_READ*/   { GUI_MODE_MODULE, gui_read_draw, gui_read_kbd_process, gui_read_kbd_process_menu_btn, 0, 0 };
 
 gui_handler *old_mode;
 
@@ -45,7 +45,7 @@ static int reader_is_active;	// Flag raised when reader is succesfully runned
 //-------------------------------------------------------------------
 static void gui_read_draw_batt() {
     sprintf(buffer, "Batt:%3d%%", get_batt_perc());
-    draw_txt_string((camera_screen.width-camera_screen.ts_button_border)/FONT_WIDTH-2-1-1-9, 0, buffer, MAKE_COLOR(COLOR_BLACK, COLOR_WHITE));
+    draw_string(camera_screen.disp_right-11*FONT_WIDTH, 0, buffer, MAKE_COLOR(COLOR_BLACK, COLOR_WHITE));
 }
 
 //-------------------------------------------------------------------
@@ -54,12 +54,13 @@ static void gui_read_draw_clock() {
 
     ttm = get_localtime();
     sprintf(buffer, "%2u:%02u", ttm->tm_hour, ttm->tm_min);
-    draw_txt_string((camera_screen.width-camera_screen.ts_button_border)/FONT_WIDTH-2-1-1-9-2-5, 0, buffer, MAKE_COLOR(COLOR_BLACK, COLOR_WHITE));
+    draw_string(camera_screen.disp_right-17*FONT_WIDTH, 0, buffer, MAKE_COLOR(COLOR_BLACK, COLOR_WHITE));
 }
 
 //-------------------------------------------------------------------
 static void gui_read_draw_scroll_indicator() {
-    draw_txt_char((camera_screen.width-camera_screen.ts_button_border)/FONT_WIDTH-2, 0, (conf.reader_autoscroll)?((pause)?'\x05':'\x04'):'\x03', MAKE_COLOR(COLOR_BLACK, COLOR_WHITE)); //title infoline
+    draw_char(camera_screen.disp_right-FONT_WIDTH, 0,
+                  (conf.reader_autoscroll)?((pause)?'\x05':'\x04'):'\x03', MAKE_COLOR(COLOR_BLACK, COLOR_WHITE)); //title infoline
 }
 
 //-------------------------------------------------------------------
@@ -81,27 +82,22 @@ int gui_read_init(const char* file)
     }
     pause = 0;
     read_to_draw = 1;
-    x=camera_screen.ts_button_border+6; 
+    x=camera_screen.disp_left+6; 
     y=FONT_HEIGHT;
-    w=camera_screen.width-camera_screen.ts_button_border*2-6-6-8;
+    w=camera_screen.disp_width-6-6-8;
     h=camera_screen.height-y;
     last_time = get_tick_count();
     
 	reader_is_active=1;    
     old_mode = gui_set_mode(&GUI_MODE_READ);
 
-    draw_filled_rect(0, 0, camera_screen.width-1, y-1, MAKE_COLOR(COLOR_BLACK, COLOR_BLACK));
-    draw_filled_rect(0, y, camera_screen.width-1, camera_screen.height-1, MAKE_COLOR(BG_COLOR(conf.reader_color), BG_COLOR(conf.reader_color)));
-
-    gui_read_draw_scroll_indicator();
-    gui_read_draw_batt();
-
     return (read_file >= 0);
 }
 
 //-------------------------------------------------------------------
 static void read_goto_next_line() {
-    draw_filled_rect(xx, yy, x+w-1, yy+rbf_font_height()-1, MAKE_COLOR(BG_COLOR(conf.reader_color), BG_COLOR(conf.reader_color)));
+    twoColors col = user_color(conf.reader_color);
+    draw_rectangle(xx, yy, x+w-1, yy+rbf_font_height()-1, MAKE_COLOR(BG_COLOR(col), BG_COLOR(col)), RECT_BORDER0|DRAW_FILLED);
     xx  = x;
     yy += rbf_font_height();
 }
@@ -112,27 +108,39 @@ static int read_fit_next_char(int ch) {
 }
 
 //-------------------------------------------------------------------
-void gui_read_draw() {
+void gui_read_draw(int force_redraw)
+{
     if (do_not_draw)
         return;
     busy_drawing = 1;
+    twoColors col = user_color(conf.reader_color);
 
     static int first_draw = 1;
-    if (first_draw)
+    if (first_draw || force_redraw)
     {
-        // font has to be loaded from here (SpyTask)
-        rbf_load_from_file(conf.reader_rbf_file, conf.reader_codepage);
+        if (first_draw)
+        {
+            // font has to be loaded from here (SpyTask)
+            rbf_load_from_file(conf.reader_rbf_file, conf.reader_codepage);
+        }
+        draw_rectangle(camera_screen.disp_left, 0,
+                       camera_screen.disp_right, y-1, MAKE_COLOR(COLOR_BLACK, COLOR_BLACK), RECT_BORDER0|DRAW_FILLED);
+        draw_rectangle(camera_screen.disp_left, y,
+                       camera_screen.disp_right, camera_screen.height-1, MAKE_COLOR(BG_COLOR(col), BG_COLOR(col)), RECT_BORDER0|DRAW_FILLED);
+        gui_read_draw_scroll_indicator();
+        read_to_draw = 1;
         first_draw = 0;
     }
 
-    if (conf.reader_autoscroll && !pause && get_tick_count()-last_time >= conf.reader_autoscroll_delay*1000 && (conf.reader_pos+read_on_screen)<read_file_size) {
+    if (conf.reader_autoscroll && !pause && get_tick_count()-last_time >= conf.reader_autoscroll_delay*1000 && (conf.reader_pos+read_on_screen)<read_file_size)
+    {
         conf.reader_pos += read_on_screen;
         read_to_draw = 1;
     }
-
-    if (read_to_draw) {
+    if (read_to_draw)
+    {
         int n, m, i, ii, ll, new_word=1;
-        
+
         xx=x; yy=y;
 
         lseek(read_file, conf.reader_pos, SEEK_SET);
@@ -143,7 +151,7 @@ void gui_read_draw() {
             if (n==0) {
                  read_goto_next_line();
                  if (yy < y+h)
-                     draw_filled_rect(x, yy, x+w-1, y+h-1, MAKE_COLOR(BG_COLOR(conf.reader_color), BG_COLOR(conf.reader_color)));
+                     draw_rectangle(x, yy, x+w-1, y+h-1, MAKE_COLOR(BG_COLOR(col), BG_COLOR(col)), RECT_BORDER0|DRAW_FILLED);
                  break;
             }
             else if (n<0) {
@@ -203,7 +211,7 @@ void gui_read_draw() {
                             read_goto_next_line();
                             continue;
                         }
-                        xx+=rbf_draw_char(xx, yy, buffer[i], conf.reader_color);
+                        xx+=rbf_draw_char(xx, yy, buffer[i], col);
                         break;
                 }
                 ++i;
@@ -215,9 +223,8 @@ void gui_read_draw() {
             read_on_screen+=i;
         }
     
-        sprintf(buffer, "(%3d%%) %d/%d  ", (read_file_size)?(conf.reader_pos*100/read_file_size):0, conf.reader_pos, read_file_size);
-        buffer[camera_screen.width/FONT_WIDTH]=0;
-        draw_txt_string((camera_screen.ts_button_border/FONT_WIDTH), 0, buffer, MAKE_COLOR(COLOR_BLACK, COLOR_WHITE)); //title infoline
+        sprintf(buffer, "(%3d%%) %d/%d", (read_file_size)?(conf.reader_pos*100/read_file_size):0, conf.reader_pos, read_file_size);
+        draw_string_justified(camera_screen.disp_left, 0, buffer, MAKE_COLOR(COLOR_BLACK, COLOR_WHITE), 0, 20*FONT_WIDTH, TEXT_LEFT|TEXT_FILL); //title infoline
 
         // scrollbar
         if (read_file_size) {
@@ -225,12 +232,12 @@ void gui_read_draw() {
             n=i*read_on_screen/read_file_size;           // bar height
             if (n<20) n=20;
             i=(i-n)*conf.reader_pos/read_file_size;   // top pos
-            draw_filled_rect(x+w+6+2, y+1,   x+w+6+6, y+1+i,   MAKE_COLOR(COLOR_BLACK, COLOR_BLACK));
-            draw_filled_rect(x+w+6+2, y+i+n, x+w+6+6, y+h-1-1, MAKE_COLOR(COLOR_BLACK, COLOR_BLACK));
-            draw_filled_rect(x+w+6+2, y+1+i, x+w+6+6, y+i+n,   MAKE_COLOR(COLOR_WHITE, COLOR_WHITE));
+            draw_rectangle(x+w+6+2, y+1,   x+w+6+6, y+1+i,   MAKE_COLOR(COLOR_BLACK, COLOR_BLACK), RECT_BORDER0|DRAW_FILLED);
+            draw_rectangle(x+w+6+2, y+i+n, x+w+6+6, y+h-1-1, MAKE_COLOR(COLOR_BLACK, COLOR_BLACK), RECT_BORDER0|DRAW_FILLED);
+            draw_rectangle(x+w+6+2, y+1+i, x+w+6+6, y+i+n,   MAKE_COLOR(COLOR_WHITE, COLOR_WHITE), RECT_BORDER0|DRAW_FILLED);
         } else {
-            draw_filled_rect((x+w)*FONT_WIDTH+2, y*FONT_HEIGHT+1, 
-                             (x+w)*FONT_WIDTH+6, (y+h)*FONT_HEIGHT-1-1, MAKE_COLOR(COLOR_BLACK, COLOR_BLACK));
+            draw_rectangle((x+w)*FONT_WIDTH+2, y*FONT_HEIGHT+1,
+                           (x+w)*FONT_WIDTH+6, (y+h)*FONT_HEIGHT-1-1, MAKE_COLOR(COLOR_BLACK, COLOR_BLACK), RECT_BORDER0|DRAW_FILLED);
         }
 
         read_to_draw = 0;
@@ -361,8 +368,8 @@ ModuleInfo _module_info =
     ANY_CHDK_BRANCH, 0, OPT_ARCHITECTURE,			// Requirements of CHDK version
     ANY_PLATFORM_ALLOWED,		// Specify platform dependency
 
-    (int32_t)"Text reader",		// Module name
-    0,
+    (int32_t)"Text reader",
+    MTYPE_EXTENSION,
 
     &_libtxtread.base,
 

@@ -307,8 +307,8 @@ static void gui_init(CMenu *menu_ptr) {
     }
 
     num_lines = camera_screen.height/rbf_font_height()-1;
-    x = camera_screen.menu_border_width;
-    w = camera_screen.width-x-x;
+    x = camera_screen.disp_left + camera_screen.menu_border_width;
+    w = camera_screen.disp_width - camera_screen.menu_border_width;
     len_bool = rbf_str_width("\x95");
     len_space = rbf_char_width(' ');
 
@@ -317,7 +317,7 @@ static void gui_init(CMenu *menu_ptr) {
 
 //-------------------------------------------------------------------
 // Return to previous menu on stack
-static void gui_menu_back() {
+void gui_menu_back() {
     if (gui_menu_stack_ptr > 0)
     {
         gui_menu_stack_ptr--;
@@ -345,7 +345,7 @@ void gui_activate_sub_menu(CMenu *sub_menu)
     // FIXME check on stack overrun;
     if (gui_menu_stack_ptr > MENUSTACK_MAXDEPTH)
     {
-        draw_txt_string(0, 0, "E1", MAKE_COLOR(COLOR_RED, COLOR_YELLOW));
+        draw_string(1, 0, "E1", MAKE_COLOR(COLOR_RED, COLOR_YELLOW));
         gui_menu_stack_ptr = 0;
     }
 
@@ -420,7 +420,7 @@ static void gui_draw_initial()
         y = ((camera_screen.height-(num_lines-1)*rbf_font_height())>>1);
         wplus = 8; 
         // scrollbar background 
-        draw_filled_rect((x+w), y, (x+w)+wplus, y+num_lines*rbf_font_height()-1, MAKE_COLOR(BG_COLOR(conf.menu_color), BG_COLOR(conf.menu_color))); 
+        draw_rectangle((x+w), y, (x+w)+wplus, y+num_lines*rbf_font_height()-1, MAKE_COLOR(BG_COLOR(user_color(conf.menu_color)), BG_COLOR(user_color(conf.menu_color))), RECT_BORDER0|DRAW_FILLED);
     }
     else
     {
@@ -442,7 +442,7 @@ static void gui_draw_initial()
 
 // Local variables used by menu draw functions
 static int imenu, yy, xx, symbol_width;
-static color cl, cl_symbol;
+static twoColors cl, cl_symbol;
 
 // Common code extracted from gui_draw for displaying the symbol on the left
 static void gui_draw_symbol(int num_symbols)
@@ -513,10 +513,10 @@ static void gui_draw(int enforce_redraw)
         {
             if (validrow(imenu))
             {
-                cl = (gui_menu_curr_item==imenu)?conf.menu_cursor_color:conf.menu_color;
+                cl = user_color((gui_menu_curr_item==imenu) ? conf.menu_cursor_color : conf.menu_color);
                 if (inUserMenu(imenu) && (curr_menu->title != LANG_MENU_USER_MENU))
                     cl = MAKE_COLOR(BG_COLOR(cl),COLOR_GREEN);
-                cl_symbol = (gui_menu_curr_item==imenu)?MAKE_COLOR(BG_COLOR(cl),FG_COLOR(conf.menu_symbol_color)):conf.menu_symbol_color;
+                cl_symbol = (gui_menu_curr_item==imenu)?MAKE_COLOR(BG_COLOR(cl),FG_COLOR(user_color(conf.menu_symbol_color))):user_color(conf.menu_symbol_color);
 
                 xx = x;
 
@@ -562,9 +562,9 @@ static void gui_draw(int enforce_redraw)
             j = i*num_lines/count;                          // bar height
             if (j<20) j=20;
             i = (i-j)*((gui_menu_curr_item<0)?0:gui_menu_curr_item)/(count-1);   // top pos
-            draw_filled_round_rect((x+w)+2, y+1,   (x+w)+6, y+1+i,                             MAKE_COLOR(COLOR_BLACK, COLOR_BLACK));
-            draw_filled_round_rect((x+w)+2, y+i+j, (x+w)+6, y+num_lines*rbf_font_height()-1-1, MAKE_COLOR(COLOR_BLACK, COLOR_BLACK));
-            draw_filled_round_rect((x+w)+2, y+1+i, (x+w)+6, y+i+j,                             MAKE_COLOR(COLOR_WHITE, COLOR_WHITE));
+            draw_rectangle((x+w)+2, y+1,   (x+w)+6, y+1+i,                             MAKE_COLOR(COLOR_BLACK, COLOR_BLACK), RECT_BORDER0|DRAW_FILLED|RECT_ROUND_CORNERS);
+            draw_rectangle((x+w)+2, y+i+j, (x+w)+6, y+num_lines*rbf_font_height()-1-1, MAKE_COLOR(COLOR_BLACK, COLOR_BLACK), RECT_BORDER0|DRAW_FILLED|RECT_ROUND_CORNERS);
+            draw_rectangle((x+w)+2, y+1+i, (x+w)+6, y+i+j,                             MAKE_COLOR(COLOR_WHITE, COLOR_WHITE), RECT_BORDER0|DRAW_FILLED|RECT_ROUND_CORNERS);
         }
     }
 }
@@ -786,7 +786,7 @@ static int gui_uedit_kbd_process() {
 
 //-------------------------------------------------------------------
 // GUI handler for menus
-static gui_handler ueditGuiHandler = { GUI_MODE_MODULE, gui_draw, gui_uedit_kbd_process, gui_uedit_kbd_process_menu_btn, 0 };
+static gui_handler ueditGuiHandler = { GUI_MODE_MODULE, gui_draw, gui_uedit_kbd_process, gui_uedit_kbd_process_menu_btn, 0, 0 };
 //-------------------------------------------------------------------
 
 
@@ -842,8 +842,8 @@ ModuleInfo _module_info =
     ANY_CHDK_BRANCH, 0, OPT_ARCHITECTURE,			// Requirements of CHDK version
     ANY_PLATFORM_ALLOWED,		// Specify platform dependency
 
-    -LANG_MENU_USER_MENU_EDIT,	// Module name
-    0,
+    -LANG_MENU_USER_MENU_EDIT,
+    MTYPE_EXTENSION,
 
     &_librun.base,
 

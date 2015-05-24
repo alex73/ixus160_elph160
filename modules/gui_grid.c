@@ -151,25 +151,26 @@ void gui_grid_draw_osd(int force)
 {
     if (camera_info.state.mode_rec_or_review && conf.show_grid_lines)
     {
-        struct gline  *ptr;
+        struct gline *ptr;
+        twoColors col = user_color(conf.grid_color);
 
         if (force || --interval==0) {
             for (ptr=head; ptr; ptr=ptr->next) {
                 switch (ptr->type) {
                     case GRID_ELEM_LINE:
-                        draw_line(ptr->x0, ptr->y0, ptr->x1, ptr->y1, (conf.grid_force_color)?conf.grid_color:ptr->clf);
+                        draw_line(ptr->x0, ptr->y0, ptr->x1, ptr->y1, (conf.grid_force_color)?FG_COLOR(col):ptr->clf);
                         break;
                     case GRID_ELEM_RECT:
-                        draw_rect(ptr->x0, ptr->y0, ptr->x1, ptr->y1, (conf.grid_force_color)?conf.grid_color:ptr->clf);
+                        draw_rectangle(ptr->x0, ptr->y0, ptr->x1, ptr->y1, (conf.grid_force_color)?col:MAKE_COLOR(ptr->clb, ptr->clf), RECT_BORDER1);
                         break;
                     case GRID_ELEM_FILLED_RECT:
-                        draw_filled_rect(ptr->x0, ptr->y0, ptr->x1, ptr->y1, (conf.grid_force_color)?conf.grid_color:MAKE_COLOR(ptr->clb, ptr->clf));
+                        draw_rectangle(ptr->x0, ptr->y0, ptr->x1, ptr->y1, (conf.grid_force_color)?col:MAKE_COLOR(ptr->clb, ptr->clf), RECT_BORDER1|DRAW_FILLED);
                         break;
                     case GRID_ELEM_ELLIPSE:
-                        draw_ellipse(ptr->x0, ptr->y0, (unsigned int)(ptr->x1), (unsigned int)(ptr->y1), (conf.grid_force_color)?conf.grid_color:ptr->clf);
+                        draw_ellipse(ptr->x0, ptr->y0, (unsigned int)(ptr->x1), (unsigned int)(ptr->y1), (conf.grid_force_color)?FG_COLOR(col):ptr->clf, 0);
                         break;
                     case GRID_ELEM_FILLED_ELLIPSE:
-                        draw_filled_ellipse(ptr->x0, ptr->y0, (unsigned int)(ptr->x1), (unsigned int)(ptr->y1), (conf.grid_force_color)?conf.grid_color:MAKE_COLOR(ptr->clf, 0));
+                        draw_ellipse(ptr->x0, ptr->y0, (unsigned int)(ptr->x1), (unsigned int)(ptr->y1), (conf.grid_force_color)?BG_COLOR(col):ptr->clf, DRAW_FILLED);
                         break;
                 }
             }
@@ -230,8 +231,8 @@ ModuleInfo _module_info =
     ANY_CHDK_BRANCH, 0, OPT_ARCHITECTURE,			// Requirements of CHDK version
     ANY_PLATFORM_ALLOWED,		// Specify platform dependency
 
-    (int32_t)"Grids (dll)",	    // Module name
-    (int32_t)"Grid Display",
+    (int32_t)"Grids (dll)",
+    MTYPE_EXTENSION,            //Grid Display
 
     &_libgrids.base,
 

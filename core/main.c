@@ -12,6 +12,10 @@
 #include "edgeoverlay.h"
 #include "module_load.h"
 
+#ifdef CAM_HAS_GPS
+  #include "gps.h"
+#endif
+
 //==========================================================
 
 static char osd_buf[50];
@@ -23,9 +27,6 @@ volatile int chdk_started_flag=0;
 int no_modules_flag;
 
 static volatile int spytask_can_start;
-#ifdef CAM_HAS_GPS
-    extern void wegpunkt();
-#endif
 
 static unsigned int memdmptick = 0;
 volatile int memdmp_delay = 0; // delay in seconds
@@ -114,6 +115,12 @@ void core_spytask()
 {
     int cnt = 1;
     int i=0;
+#ifdef CAM_HAS_GPS
+    int gps_delay_timer = 200 ;
+    int gps_state = -1 ;
+#endif
+    
+    parse_version(&chdk_version, BUILD_NUMBER, BUILD_SVNREV);
 
     // Init camera_info bits that can't be done statically
     camera_info_init();
@@ -151,19 +158,24 @@ void core_spytask()
     cam_console_init();
 #endif
 
-    mkdir("A/CHDK");
-    mkdir("A/CHDK/FONTS");
-    mkdir("A/CHDK/SYMBOLS");
-    mkdir("A/CHDK/SCRIPTS");
-    mkdir("A/CHDK/LANG");
-    mkdir("A/CHDK/BOOKS");
-    mkdir("A/CHDK/MODULES");
-    mkdir("A/CHDK/MODULES/CFG");
-    mkdir("A/CHDK/GRIDS");
-    mkdir("A/CHDK/CURVES");
-    mkdir("A/CHDK/DATA");
-    mkdir("A/CHDK/LOGS");
-    mkdir("A/CHDK/EDGE");
+    static char *chdk_dirs[] =
+    {
+        "A/CHDK",
+        "A/CHDK/FONTS",
+        "A/CHDK/SYMBOLS",
+        "A/CHDK/SCRIPTS",
+        "A/CHDK/LANG",
+        "A/CHDK/BOOKS",
+        "A/CHDK/MODULES",
+        "A/CHDK/MODULES/CFG",
+        "A/CHDK/GRIDS",
+        "A/CHDK/CURVES",
+        "A/CHDK/DATA",
+        "A/CHDK/LOGS",
+        "A/CHDK/EDGE",
+    };
+    for (i = 0; i < sizeof(chdk_dirs) / sizeof(char*); i++)
+        mkdir_if_not_exist(chdk_dirs[i]);
 
     no_modules_flag = stat("A/CHDK/MODULES/FSELECT.FLT",0) ? 1 : 0 ;
 
@@ -199,11 +211,27 @@ void core_spytask()
         // Set up camera mode & state variables
         mode_get();
 
+        extern void set_palette();
+        set_palette();
+
         if ( memdmptick && (get_tick_count() >= memdmptick) )
         {
             memdmptick = 0;
             dump_memory();
         }
+
+#ifdef CAM_HAS_GPS
+        if ( --gps_delay_timer == 0 )
+        {
+            gps_delay_timer = 50 ;
+            if ( gps_state != (int)conf.gps_on_off )
+            {
+                gps_state = (int)conf.gps_on_off ;
+                init_gps_startup(!gps_state) ; 
+            }
+        }
+#endif        
+        
         // Change ALT mode if the KBD task has flagged a state change
         gui_activate_alt_mode();
 
@@ -220,7 +248,11 @@ void core_spytask()
             hook_raw_save_complete();
             raw_data_available = 0;
 #ifdef CAM_HAS_GPS
-            if( (int)conf.gps_waypoint_save == 1 ) wegpunkt();
+            if (((int)conf.gps_on_off == 1) && ((int)conf.gps_waypoint_save == 1)) gps_waypoint();
+#endif
+#if defined(CAM_CALC_BLACK_LEVEL)
+            // Reset to default in case used by non-RAW process code (e.g. raw merge)
+            camera_sensor.black_level = CAM_BLACK_LEVEL;
 #endif
             continue;
         }
@@ -255,7 +287,7 @@ void core_spytask()
 
 #ifdef DEBUG_PRINT_TO_LCD
         sprintf(osd_buf, "%d", cnt );	// modify cnt to what you want to display
-        draw_txt_string(1, i++, osd_buf, conf.osd_color);
+        draw_txt_string(1, i++, osd_buf, user_color(conf.osd_color));
 #endif
 #if defined(OPT_FILEIO_STATS)
         sprintf(osd_buf, "%3d %3d %3d %3d %3d %3d %3d %4d",
@@ -263,7 +295,7 @@ void core_spytask()
                 camera_info.fileio_stats.write_badfile_count, camera_info.fileio_stats.open_count,
                 camera_info.fileio_stats.close_count, camera_info.fileio_stats.open_fail_count,
                 camera_info.fileio_stats.close_fail_count, camera_info.fileio_stats.max_semaphore_timeout);
-        draw_txt_string(1, i++, osd_buf, conf.osd_color);
+        draw_txt_string(1, i++, osd_buf,user_color( conf.osd_color));
 #endif
 
         if (camera_info.perf.md_af_tuning)
@@ -271,7 +303,7 @@ void core_spytask()
             sprintf(osd_buf, "MD last %-4d min %-4d max %-4d avg %-4d", 
                 camera_info.perf.af_led.last, camera_info.perf.af_led.min, camera_info.perf.af_led.max, 
                 (camera_info.perf.af_led.count>0)?camera_info.perf.af_led.sum/camera_info.perf.af_led.count:0);
-            draw_txt_string(1, i++, osd_buf, conf.osd_color);
+            draw_txt_string(1, i++, osd_buf, user_color(conf.osd_color));
         }
 
         // Process async module unload requests

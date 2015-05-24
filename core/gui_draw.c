@@ -1,9 +1,9 @@
 #include "platform.h"
 #include "stdlib.h"
-#include "keyboard.h"
 #include "touchscreen.h"
 #include "conf.h"
 #include "font.h"
+#include "lang.h"
 #include "gui_draw.h"
 
 //-------------------------------------------------------------------
@@ -20,9 +20,9 @@ static char* frame_buffer[2];
 static void draw_pixel_std(unsigned int offset, color cl)
 {
 #ifdef DRAW_ON_ACTIVE_BITMAP_BUFFER_ONLY
-	bitmap_buffer[active_bitmap_buffer][offset] = cl & 0xff;
+	bitmap_buffer[active_bitmap_buffer][offset] = cl;
 #else
-	frame_buffer[0][offset] = frame_buffer[1][offset] = cl & 0xff;
+	frame_buffer[0][offset] = frame_buffer[1][offset] = cl;
 #endif
 }
 
@@ -149,6 +149,7 @@ void draw_hline(coord x, coord y, int len, color cl)
     if ((y < 0) || (x >= camera_screen.width) || (y >= camera_screen.height)) return;
     if (x < 0) { len += x; x = 0; }
     if ((x + len) > camera_screen.width) len = camera_screen.width - x;
+    if ((x == 0) && (y == 0)) { x++; len--; }   // Skip guard pixel
     register unsigned int offset = y * camera_screen.buffer_width + ASPECT_XCORRECTION(x);
     len = ASPECT_XCORRECTION(len);      // Scale the line length if needed
     for (; len>0; len--, offset++)
@@ -165,179 +166,100 @@ void draw_vline(coord x, coord y, int len, color cl)
 }
 
 //-------------------------------------------------------------------
-typedef struct
-{
-    coord xMin, yMin, xMax, yMax;
-} rectBox;
-
-static int normalise(rectBox *r, coord x1, coord y1, coord x2, coord y2)
+// Generic rectangle
+// 'flags' defines type - filled, round corners, shadow and border thickness
+void draw_rectangle(coord x1, coord y1, coord x2, coord y2, twoColors cl, int flags)
 {
     // Normalise values
-    if (x1>x2) {
-        r->xMax=x1; r->xMin=x2;
-    } else {
-        r->xMin=x1; r->xMax=x2;
-    }
-    if (y1>y2) {
-        r->yMax=y1; r->yMin=y2;
-    } else {
-        r->yMin=y1; r->yMax=y2;
-    }
+    if (x1 > x2)
+        swap(x1, x2);
+    if (y1 > y2)
+        swap(y1, y2);
 
     // Check if completely off screen
-    if ((r->xMax < 0) || (r->yMax < 0) || (r->xMin >= camera_screen.width) || (r->yMin >= camera_screen.height))
-        return 0;
-        
-    return 1;
-}
+    if ((x2 < 0) || (y2 < 0) || (x1 >= camera_screen.width) || (y1 >= camera_screen.height))
+        return;
 
-static void shrink(rectBox *r)
-{
-    r->xMin++; r->xMax--;
-    r->yMin++; r->yMax--;
-}
-
-static void shift(rectBox *r)
-{
-    r->xMin++; r->xMax++;
-    r->yMin++; r->yMax++;
-}
-
-static void draw_rectangle(rectBox r, color cl, int round) 
-{
-    // Clipping done in draw_hline and draw_vline
-    draw_vline(r.xMin, r.yMin + round * 2, r.yMax - r.yMin - round * 4 + 1, cl);
-    draw_vline(r.xMax, r.yMin + round * 2, r.yMax - r.yMin - round * 4 + 1, cl);
-    draw_hline(r.xMin + 1 + round, r.yMin, r.xMax - r.xMin - round * 2 - 1, cl);
-    draw_hline(r.xMin + 1 + round, r.yMax, r.xMax - r.xMin - round * 2 - 1, cl);
-}
-
-static void draw_rectangle_thick(rectBox r, color cl, int thickness, int round)
-{
+    int round = (flags & RECT_ROUND_CORNERS) ? 1 : 0;
+    int thickness;
     int i;
-    cl = FG_COLOR(cl);
-    draw_rectangle(r,cl,round);
-    for (i=1; i<thickness; i++)
+
+    // Shadow (do this first, as edge draw shrinks rectangle for fill)
+    if (flags & RECT_SHADOW_MASK)
     {
-        shrink(&r);
-        draw_rectangle(r,cl,0);
-    }
-}
-
-static void fill_rect(rectBox r, color cl) 
-{
-    register coord y;
-    
-    // Clip values
-    if (r.xMin < 0) r.xMin = 0;
-    if (r.yMin < 0) r.yMin = 0;
-    if (r.xMax >= camera_screen.width) r.xMax = camera_screen.width-1;
-    if (r.yMax >= camera_screen.height) r.yMax = camera_screen.height-1;
-
-    cl = BG_COLOR(cl);
-    for (y = r.yMin; y <= r.yMax; ++y)
-        draw_hline(r.xMin, y, r.xMax - r.xMin + 1, cl);
-}
-
-static void draw_filled_rectangle_thick(rectBox r, color cl, int thickness, int round)
-{
-    int i;
-    draw_rectangle(r,FG_COLOR(cl),round);
-    for (i=1; i<thickness; i++)
-    {
-        shrink(&r);
-        draw_rectangle(r,FG_COLOR(cl),0);
-    }
-    shrink(&r);
-    fill_rect(r, cl);
-}
-
-//-------------------------------------------------------------------
-void draw_rect(coord x1, coord y1, coord x2, coord y2, color cl)
-{
-    rectBox r;
-    if (normalise(&r,x1,y1,x2,y2))
-        draw_rectangle(r,FG_COLOR(cl),0);
-}
-
-void draw_rect_thick(coord x1, coord y1, coord x2, coord y2, color cl, int thickness)
-{
-    rectBox r;
-    if (normalise(&r,x1,y1,x2,y2))
-        draw_rectangle_thick(r,FG_COLOR(cl),thickness,0);
-}
-
-void draw_rect_shadow(coord x1, coord y1, coord x2, coord y2, color cl, int thickness)
-{
-    int i;
-    cl = FG_COLOR(cl);
-    rectBox r;
-    if (normalise(&r,x1,y1,x2,y2))
-        for (i=0; i<thickness; i++)
+        thickness = ((flags & RECT_SHADOW_MASK) >> 4);
+        for (i=1; i<=thickness; i++)
         {
-            draw_rectangle(r,cl,0);
-            shift(&r);
+            draw_vline(x2+i, y1+1, y2 - y1, COLOR_BLACK);
+            draw_hline(x1+1, y2+i, x2 - x1 + thickness, COLOR_BLACK);
         }
+    }
+
+    // Edge
+    thickness = flags & RECT_BORDER_MASK;
+    for (i=0; i<thickness; i++)
+    {
+        // Clipping done in draw_hline and draw_vline
+        draw_vline(x1, y1 + round * 2, y2 - y1 - round * 4 + 1, FG_COLOR(cl));
+        draw_vline(x2, y1 + round * 2, y2 - y1 - round * 4 + 1, FG_COLOR(cl));
+        draw_hline(x1 + 1 + round, y1, x2 - x1 - round * 2 - 1, FG_COLOR(cl));
+        draw_hline(x1 + 1 + round, y2, x2 - x1 - round * 2 - 1, FG_COLOR(cl));
+
+        x1++; x2--;
+        y1++; y2--;
+
+        round = 0;
+    }
+
+    // Fill
+    if (flags & DRAW_FILLED)
+    {
+        // Clip values
+        if (x1 < 0) x1 = 0;
+        if (y1 < 0) y1 = 0;
+        if (x2 >= camera_screen.width)  x2 = camera_screen.width - 1;
+        if (y2 >= camera_screen.height) y2 = camera_screen.height - 1;
+
+        coord y;
+        for (y = y1; y <= y2; ++y)
+            draw_hline(x1, y, x2 - x1 + 1, BG_COLOR(cl));
+    }
 }
 
 //-------------------------------------------------------------------
-void draw_round_rect(coord x1, coord y1, coord x2, coord y2, color cl)
-{ 
-    rectBox r;
-    if (normalise(&r,x1,y1,x2,y2))
-        draw_rectangle(r,FG_COLOR(cl),1);
-} 
+#pragma pack(1)
+// Format of header block for each character in the 'font_data' array
+// This is immediately followed by '16 - top - bottom' bytes of character data.
+typedef struct {
+    unsigned char skips;    // Top and Bottom skip counts for blank rows (4 bits each - ((top << 4) | bottom))
+} FontData;
+#pragma pack()
 
-void draw_round_rect_thick(coord x1, coord y1, coord x2, coord y2, color cl, int thickness)
-{ 
-    rectBox r;
-    if (normalise(&r,x1,y1,x2,y2))
-        draw_rectangle_thick(r,FG_COLOR(cl),thickness,1);
-} 
-
-//-------------------------------------------------------------------
-void draw_filled_rect(coord x1, coord y1, coord x2, coord y2, color cl)
-{
-    rectBox r;
-    if (normalise(&r,x1,y1,x2,y2))
-        draw_filled_rectangle_thick(r,cl,1,0);
-}
-
-void draw_filled_rect_thick(coord x1, coord y1, coord x2, coord y2, color cl, int thickness)
-{
-    rectBox r;
-    if (normalise(&r,x1,y1,x2,y2))
-        draw_filled_rectangle_thick(r,cl,thickness,0);
-}
-
-//-------------------------------------------------------------------
-void draw_filled_round_rect(coord x1, coord y1, coord x2, coord y2, color cl)
-{ 
-    rectBox r;
-    if (normalise(&r,x1,y1,x2,y2))
-        draw_filled_rectangle_thick(r,cl,1,1);
-} 
-
-void draw_filled_round_rect_thick(coord x1, coord y1, coord x2, coord y2, color cl, int thickness)
-{ 
-    rectBox r;
-    if (normalise(&r,x1,y1,x2,y2))
-        draw_filled_rectangle_thick(r,cl,thickness,1);
-} 
-
-//-------------------------------------------------------------------
-void draw_char(coord x, coord y, const char ch, color cl)
+static unsigned char* get_cdata(unsigned int *offset, unsigned int *size, const char ch)
 {
     FontData *f = (FontData*)get_current_font_data(ch);
-    const unsigned char *sym = (unsigned char*)f + sizeof(FontData) - f->offset;
+
+    *offset = f->skips >> 4;            // # of blank lines at top
+    *size = 16 - (f->skips & 0xF);      // last line of non-blank data
+    if (*size == *offset)               // special case for blank char (top == 15 && bottom == 1)
+        *offset++;
+
+    return (unsigned char*)f + sizeof(FontData) - *offset;
+}
+
+void draw_char(coord x, coord y, const char ch, twoColors cl)
+{
     int i, ii;
 
+    unsigned int offset, size;
+    unsigned char *sym = get_cdata(&offset, &size, ch);
+
     // First draw blank lines at top
-    for (i=0; i<f->offset; i++)
+    for (i=0; i<offset; i++)
         draw_hline(x, y+i, FONT_WIDTH, BG_COLOR(cl));
 
     // Now draw character data
-    for (; i<f->offset+f->size; i++)
+    for (; i<size; i++)
     {
 	    for (ii=0; ii<FONT_WIDTH; ii++)
         {
@@ -350,21 +272,22 @@ void draw_char(coord x, coord y, const char ch, color cl)
         draw_hline(x, y+i, FONT_WIDTH, BG_COLOR(cl));
 }
 
-void draw_char_scaled(coord x, coord y, const char ch, color cl, int xsize, int ysize)
+void draw_char_scaled(coord x, coord y, const char ch, twoColors cl, int xsize, int ysize)
 {
-    color clf = MAKE_COLOR(FG_COLOR(cl),FG_COLOR(cl));
-    color clb = MAKE_COLOR(BG_COLOR(cl),BG_COLOR(cl));
-
-    FontData *f = (FontData*)get_current_font_data(ch);
-    const unsigned char *sym = (unsigned char*)f + sizeof(FontData) - f->offset;
     int i, ii;
 
+    twoColors clf = MAKE_COLOR(FG_COLOR(cl),FG_COLOR(cl));
+    twoColors clb = MAKE_COLOR(BG_COLOR(cl),BG_COLOR(cl));
+
+    unsigned int offset, size;
+    unsigned char *sym = get_cdata(&offset, &size, ch);
+
     // First draw blank lines at top
-    for (i=0; i<f->offset; i++)
-        draw_filled_rect(x,y+i*ysize,x+FONT_WIDTH*xsize-1,y+i*ysize+ysize-1,clb);
+    if (offset > 0)
+        draw_rectangle(x,y,x+FONT_WIDTH*xsize-1,y+offset*ysize+ysize-1,clb,RECT_BORDER0|DRAW_FILLED);
 
     // Now draw character data
-    for (; i<(f->offset+f->size); i++)
+    for (i=offset; i<size; i++)
     {
         unsigned char last = sym[i] & 0x80;
         int len = 1;
@@ -372,7 +295,7 @@ void draw_char_scaled(coord x, coord y, const char ch, color cl, int xsize, int 
         {
             if (((sym[i] << ii) & 0x80) != last)
             {
-                draw_filled_rect(x+(ii-len)*xsize,y+i*ysize,x+ii*xsize-1,y+i*ysize+ysize-1,(last)?clf:clb);
+                draw_rectangle(x+(ii-len)*xsize,y+i*ysize,x+ii*xsize-1,y+i*ysize+ysize-1,(last)?clf:clb,RECT_BORDER0|DRAW_FILLED);
                 last = (sym[i] << ii) & 0x80;
                 len = 1;
             }
@@ -381,33 +304,140 @@ void draw_char_scaled(coord x, coord y, const char ch, color cl, int xsize, int 
                 len++;
             }
         }
-        draw_filled_rect(x+(ii-len)*xsize,y+i*ysize,x+ii*xsize-1,y+i*ysize+ysize-1,(last)?clf:clb);
+        draw_rectangle(x+(ii-len)*xsize,y+i*ysize,x+ii*xsize-1,y+i*ysize+ysize-1,(last)?clf:clb,RECT_BORDER0|DRAW_FILLED);
     }
 
     // Last draw blank lines at bottom
-    for (; i<FONT_HEIGHT; i++)
-        draw_filled_rect(x,y+i*ysize,x+FONT_WIDTH*xsize-1,y+i*ysize+ysize-1,clb);
+    if (i < FONT_HEIGHT)
+        draw_rectangle(x,y+i*ysize,x+FONT_WIDTH*xsize-1,y+FONT_HEIGHT*ysize+ysize-1,clb,RECT_BORDER0|DRAW_FILLED);
 }
 
 //-------------------------------------------------------------------
-void draw_string(coord x, coord y, const char *s, color cl)
+// String & text functions
+
+// Draw a single line string up to a maximum pixel width
+int draw_string_clipped(coord x, coord y, const char *s, twoColors cl, int max_width)
 {
-    while(*s)
+    while (*s && (*s != '\n') && (max_width >= FONT_WIDTH))
     {
 	    draw_char(x, y, *s, cl);
 	    s++;
-	    x+=FONT_WIDTH;
+        max_width -= FONT_WIDTH;
+	    x += FONT_WIDTH;
 	    if ((x>=camera_screen.width) && (*s))
         {
 	        draw_char(x-FONT_WIDTH,y, '>', cl);
 	        break;
 	    }
     }
+    return x;
 }
 
-void draw_string_scaled(coord x, coord y, const char *s, color cl, int xsize, int ysize)
+// Draw a single line string
+int draw_string(coord x, coord y, const char *s, twoColors cl)
 {
-    while(*s)
+    return draw_string_clipped(x, y, s, cl, camera_screen.width);
+}
+
+// Draw a single line string:
+//      - xo = left offset to start text (only applies to left justified text)
+//      - max_width = maximum pixel width to use (staring from x)
+//      - justification = left, center or right justified, also controls if unused area to be filled with background color
+// Returns x position of first character drawn
+int draw_string_justified(coord x, coord y, const char *s, twoColors cl, int xo, int max_width, int justification)
+{
+    // Get length in pixels
+    const char *e = strchr(s, '\n');
+    int l;
+    if (e)
+        l = (e - s) * FONT_WIDTH;
+    else
+        l = strlen(s) * FONT_WIDTH;
+    if (l > max_width) l = max_width;
+
+    // Calculate justification offset
+    switch (justification & 0xF)
+    {
+    case TEXT_RIGHT:
+        xo = (max_width - l);
+        break;
+    case TEXT_CENTER:
+        xo = ((max_width - l) >> 1);
+        break;
+    }
+
+    // Fill left side
+    if ((justification & TEXT_FILL) && (xo > 0))
+        draw_rectangle(x, y, x+xo-1, y+FONT_HEIGHT-1, cl, RECT_BORDER0|DRAW_FILLED);
+
+    // Draw string (get length drawn in pixels)
+    l = draw_string_clipped(x+xo, y, s, cl, max_width - xo) - x;
+
+    // Fill right side
+    if ((justification & TEXT_FILL) && (l < max_width))
+        draw_rectangle(x+l, y, x+max_width-1, y+FONT_HEIGHT-1, cl, RECT_BORDER0|DRAW_FILLED);
+
+    // Return start of first character
+    return x+xo;
+}
+
+// Calculate the max line length and number of lines of a multi line string
+// Lines are separated by newline '\n' characters
+// Returns:
+//      - max line length (return value)
+//      - number of lines (in *max_lines)
+int text_dimensions(const char *s, int width, int max_chars, int *max_lines)
+{
+    int l = 0, n;
+    while (s && *s && (l < *max_lines))
+    {
+        const char *e = strchr(s, '\n');
+        if (e)
+        {
+            n = e - s;
+            e++;
+        }
+        else
+        {
+            n = strlen(s);
+        }
+
+        if (n > width) width = n;
+
+        s = e;
+        l++;
+    }
+    *max_lines = l;
+    if (width > max_chars) width = max_chars;
+    return width;
+}
+
+// Draw multi-line text string:
+//      - max_chars = max # of chars to draw
+//      - max_lines = max # of lines to draw
+//      - justification = left, center or right justified, with optional fill of unused space
+// Returns x position of first character on last line
+int draw_text_justified(coord x, coord y, const char *s, twoColors cl, int max_chars, int max_lines, int justification)
+{
+    int rx = 0;
+    while (s && *s && (max_lines > 0))
+    {
+        const char *e = strchr(s, '\n');
+        if (e) e++;
+
+        rx = draw_string_justified(x, y, s, cl, 0, max_chars*FONT_WIDTH, justification);
+
+        s = e;
+        y += FONT_HEIGHT;
+        max_lines--;
+    }
+    return rx;
+}
+
+// Draw single line string, with optiona X and Y scaling
+void draw_string_scaled(coord x, coord y, const char *s, twoColors cl, int xsize, int ysize)
+{
+    while (*s && (*s != '\n'))
     {
 	    draw_char_scaled(x, y, *s, cl, xsize, ysize);
 	    s++;
@@ -420,7 +450,8 @@ void draw_string_scaled(coord x, coord y, const char *s, color cl, int xsize, in
     }
 }
 
-void draw_osd_string(OSD_pos pos, int xo, int yo, char *s, color c, OSD_scale scale)
+// Draw CHDK OSD string at user defined position and scale
+void draw_osd_string(OSD_pos pos, int xo, int yo, char *s, twoColors c, OSD_scale scale)
 {
     if ((scale.x == 0) || (scale.y == 0) || ((scale.x == 1) && (scale.y == 1)))
         draw_string(pos.x+xo, pos.y+yo, s, c);
@@ -429,71 +460,44 @@ void draw_osd_string(OSD_pos pos, int xo, int yo, char *s, color c, OSD_scale sc
 }
 
 //-------------------------------------------------------------------
-void draw_txt_rect(coord col, coord row, unsigned int length, unsigned int height, color cl)
-{
-    draw_rect(col*FONT_WIDTH, row*FONT_HEIGHT, (col+length)*FONT_WIDTH-1, (row+height)*FONT_HEIGHT-1, cl);
-}
-
-//-------------------------------------------------------------------
-void draw_txt_rect_exp(coord col, coord row, unsigned int length, unsigned int height, unsigned int exp, color cl)
-{
-    draw_rect(col*FONT_WIDTH-exp, row*FONT_HEIGHT-exp, (col+length)*FONT_WIDTH-1+exp, (row+height)*FONT_HEIGHT-1+exp, cl);
-}
-
-//-------------------------------------------------------------------
-void draw_txt_filled_rect(coord col, coord row, unsigned int length, unsigned int height, color cl)
-{
-    draw_filled_rect(col*FONT_WIDTH, row*FONT_HEIGHT, (col+length)*FONT_WIDTH-1, (row+height)*FONT_HEIGHT-1, cl);
-}
-
-//-------------------------------------------------------------------
-void draw_txt_filled_rect_exp(coord col, coord row, unsigned int length, unsigned int height, unsigned int exp, color cl)
-{
-    draw_filled_rect(col*FONT_WIDTH-exp, row*FONT_HEIGHT-exp, (col+length)*FONT_WIDTH-1+exp, (row+height)*FONT_HEIGHT-1+exp, cl);
-}
-
-//-------------------------------------------------------------------
-void draw_txt_string(coord col, coord row, const char *str, color cl)
+// Draw single line string at 'character' screen position (row, col)
+// Pixel co-ordinate conversion --> x = col * FONT_WIDTH, y = row * FONT_HEIGHT
+void draw_txt_string(coord col, coord row, const char *str, twoColors cl)
 {
     draw_string(col*FONT_WIDTH, row*FONT_HEIGHT, str, cl);
 }
 
 //-------------------------------------------------------------------
-void draw_txt_char(coord col, coord row, const char ch, color cl)
-{
-    draw_char(col*FONT_WIDTH, row*FONT_HEIGHT, ch, cl);
-}
+// *** Not used ***
+//void draw_circle(coord x, coord y, const unsigned int r, color cl)
+//{
+//    int dx = 0;
+//    int dy = r;
+//    int p=(3-(r<<1));
+//
+//    do {
+//        draw_pixel((x+dx),(y+dy),cl);
+//        draw_pixel((x+dy),(y+dx),cl);
+//        draw_pixel((x+dy),(y-dx),cl);
+//        draw_pixel((x+dx),(y-dy),cl);
+//        draw_pixel((x-dx),(y-dy),cl);
+//        draw_pixel((x-dy),(y-dx),cl);
+//        draw_pixel((x-dy),(y+dx),cl);
+//        draw_pixel((x-dx),(y+dy),cl);
+//
+//        ++dx;
+//
+//        if (p<0)
+//            p += ((dx<<2)+6);
+//        else {
+//            --dy;
+//            p += (((dx-dy)<<2)+10);
+//        }
+//    } while (dx<=dy);
+//}
 
 //-------------------------------------------------------------------
-void draw_circle(coord x, coord y, const unsigned int r, color cl)
-{
-    int dx = 0;
-    int dy = r;
-    int p=(3-(r<<1));
-
-    do {
-        draw_pixel((x+dx),(y+dy),cl);
-        draw_pixel((x+dy),(y+dx),cl);
-        draw_pixel((x+dy),(y-dx),cl);
-        draw_pixel((x+dx),(y-dy),cl);
-        draw_pixel((x-dx),(y-dy),cl);
-        draw_pixel((x-dy),(y-dx),cl);
-        draw_pixel((x-dy),(y+dx),cl);
-        draw_pixel((x-dx),(y+dy),cl);
-
-        ++dx;
-
-        if (p<0) 
-            p += ((dx<<2)+6);
-        else {
-            --dy;
-            p += (((dx-dy)<<2)+10);
-        }
-    } while (dx<=dy);
-}
-
-//-------------------------------------------------------------------
-void draw_ellipse(coord CX, coord CY, unsigned int XRadius, unsigned int YRadius, color cl)
+void draw_ellipse(coord CX, coord CY, unsigned int XRadius, unsigned int YRadius, color cl, int flags)
 {
     // Bresenham fast ellipse algorithm - http://homepage.smc.edu/kennedy_john/BELIPSE.PDF
     int X, Y;
@@ -512,10 +516,18 @@ void draw_ellipse(coord CX, coord CY, unsigned int XRadius, unsigned int YRadius
     StoppingY = 0;
     while ( StoppingX >= StoppingY ) 
     {
-        draw_pixel(CX-X,CY-Y,cl);
-        draw_pixel(CX-X,CY+Y,cl);
-        draw_pixel(CX+X,CY-Y,cl);
-        draw_pixel(CX+X,CY+Y,cl);
+        if (flags & DRAW_FILLED)
+        {
+            draw_hline(CX-X,CY-Y,X*2+1,cl);
+            draw_hline(CX-X,CY+Y,X*2+1,cl);
+        }
+        else
+        {
+            draw_pixel(CX-X,CY-Y,cl);
+            draw_pixel(CX-X,CY+Y,cl);
+            draw_pixel(CX+X,CY-Y,cl);
+            draw_pixel(CX+X,CY+Y,cl);
+        }
         Y++;
         StoppingY += TwoASquare;
         EllipseError += YChange;
@@ -535,12 +547,26 @@ void draw_ellipse(coord CX, coord CY, unsigned int XRadius, unsigned int YRadius
     EllipseError = 0;
     StoppingX = 0;
     StoppingY = TwoASquare*YRadius;
+    int lastY = Y + 1;
     while ( StoppingX <= StoppingY )
     {
-        draw_pixel(CX-X,CY-Y,cl);
-        draw_pixel(CX-X,CY+Y,cl);
-        draw_pixel(CX+X,CY-Y,cl);
-        draw_pixel(CX+X,CY+Y,cl);
+        if (flags & DRAW_FILLED)
+        {
+            // Only draw lines if Y has changed
+            if (lastY != Y)
+            {
+                draw_hline(CX-X,CY-Y,X*2+1,cl);
+                draw_hline(CX-X,CY+Y,X*2+1,cl);
+                lastY = Y;
+            }
+        }
+        else
+        {
+            draw_pixel(CX-X,CY-Y,cl);
+            draw_pixel(CX-X,CY+Y,cl);
+            draw_pixel(CX+X,CY-Y,cl);
+            draw_pixel(CX+X,CY+Y,cl);
+        }
         X++;
         StoppingX += TwoBSquare;
         EllipseError += XChange;
@@ -556,142 +582,92 @@ void draw_ellipse(coord CX, coord CY, unsigned int XRadius, unsigned int YRadius
 }
 
 //-------------------------------------------------------------------
-void draw_filled_ellipse(coord CX, coord CY, unsigned int XRadius, unsigned int YRadius, color cl)
+// Draw a button
+void draw_button(int x, int y, int w, int str_id, int active)
 {
-    color cl_fill = MAKE_COLOR(BG_COLOR(cl), BG_COLOR(cl));
+    twoColors cl = MAKE_COLOR((active) ? COLOR_RED : COLOR_BLACK, COLOR_WHITE);
+    w = w * FONT_WIDTH;
 
-    // Bresenham fast ellipse algorithm - http://homepage.smc.edu/kennedy_john/BELIPSE.PDF
-    int X, Y;
-    int XChange, YChange;
-    int EllipseError;
-    int TwoASquare, TwoBSquare;
-    int StoppingX, StoppingY;
-    TwoASquare = 2*XRadius*XRadius;
-    TwoBSquare = 2*YRadius*YRadius;
-    X = XRadius;
-    Y = 0;
-    XChange = YRadius*YRadius*(1-2*XRadius);
-    YChange = XRadius*XRadius;
-    EllipseError = 0;
-    StoppingX = TwoBSquare*XRadius;
-    StoppingY = 0;
-    while ( StoppingX >= StoppingY ) 
+    draw_rectangle(x-2, y-2, x+w+2, y+FONT_HEIGHT+2, cl, RECT_BORDER1|DRAW_FILLED|RECT_SHADOW1);     // main box
+    draw_string(x+((w-(strlen(lang_str(str_id))*FONT_WIDTH))>>1), y, lang_str(str_id), cl);
+}
+
+//-------------------------------------------------------------------
+// Draw an OSD icon from an array of actions
+void draw_icon_cmds(coord x, coord y, icon_cmd *cmds)
+{
+    while (1)
     {
-        draw_hline(CX-X,CY-Y,X*2+1,cl_fill);
-        draw_hline(CX-X,CY+Y,X*2+1,cl_fill);
-        Y++;
-        StoppingY += TwoASquare;
-        EllipseError += YChange;
-        YChange += TwoASquare;
-        if ((2*EllipseError + XChange) > 0 )
+        color cf = chdk_colors[cmds->cf];       // Convert color indexes to actual colors
+        color cb = chdk_colors[cmds->cb];
+        switch (cmds->action)
         {
-            X--;
-            StoppingX -= TwoBSquare;
-            EllipseError += XChange;
-            XChange += TwoBSquare;
+        default:
+        case IA_END:
+            return;
+        case IA_HLINE:
+            draw_hline(x+cmds->x1, y+cmds->y1, cmds->x2, cb);
+            break;
+        case IA_VLINE:
+            draw_vline(x+cmds->x1, y+cmds->y1, cmds->y2, cb);
+            break;
+        case IA_LINE:
+            draw_line(x+cmds->x1, y+cmds->y1, x+cmds->x2, y+cmds->y2, cb);
+            break;
+        case IA_RECT:
+            draw_rectangle(x+cmds->x1, y+cmds->y1, x+cmds->x2, y+cmds->y2, MAKE_COLOR(cb,cf), RECT_BORDER1);
+            break;
+        case IA_FILLED_RECT:
+            draw_rectangle(x+cmds->x1, y+cmds->y1, x+cmds->x2, y+cmds->y2, MAKE_COLOR(cb,cf), RECT_BORDER1|DRAW_FILLED);
+            break;
+        case IA_ROUND_RECT:
+            draw_rectangle(x+cmds->x1, y+cmds->y1, x+cmds->x2, y+cmds->y2, MAKE_COLOR(cb,cf), RECT_BORDER1|RECT_ROUND_CORNERS);
+            break;
+        case IA_FILLED_ROUND_RECT:
+            draw_rectangle(x+cmds->x1, y+cmds->y1, x+cmds->x2, y+cmds->y2, MAKE_COLOR(cb,cf), RECT_BORDER1|DRAW_FILLED|RECT_ROUND_CORNERS);
+            break;
         }
-    }
-    X = 0;
-    Y = YRadius;
-    XChange = YRadius*YRadius;
-    YChange = XRadius*XRadius*(1-2*YRadius);
-    EllipseError = 0;
-    StoppingX = 0;
-    StoppingY = TwoASquare*YRadius;
-    while ( StoppingX <= StoppingY )
-    {
-        X++;
-        StoppingX += TwoBSquare;
-        EllipseError += XChange;
-        XChange += TwoBSquare;
-        if ((2*EllipseError + YChange) > 0 )
-        {
-            draw_hline(CX-X,CY-Y,X*2+1,cl_fill);
-            draw_hline(CX-X,CY+Y,X*2+1,cl_fill);
-            Y--;
-            StoppingY -= TwoASquare;
-            EllipseError += YChange;
-            YChange += TwoASquare;
-        }
+        cmds++;
     }
 }
 
 //-------------------------------------------------------------------
 
-const unsigned char const script_colors[NUM_SCRIPT_COLORS][2]  = {
+extern unsigned char ply_colors[];
+extern unsigned char rec_colors[];
 
-    {COLOR_TRANSPARENT,         COLOR_TRANSPARENT},         //  1   trans
-    {COLOR_BLACK,               COLOR_BLACK},               //  2   black
-    {COLOR_WHITE,               COLOR_WHITE},               //  3   white
-                                        
-    {COLOR_ICON_PLY_RED,        COLOR_ICON_REC_RED},        //  4   red
-    {COLOR_ICON_PLY_RED_DK,     COLOR_ICON_REC_RED_DK},     //  5   red_dark
-    {COLOR_ICON_PLY_RED_LT,     COLOR_ICON_REC_RED_LT},     //  6   red_light
-    {COLOR_ICON_PLY_GREEN,      COLOR_ICON_REC_GREEN},      //  7   green
-    {COLOR_ICON_PLY_GREEN_DK,   COLOR_ICON_REC_GREEN_DK},   //  8   green_dark
-    {COLOR_ICON_PLY_GREEN_LT,   COLOR_ICON_REC_GREEN_LT},   //  9   green_light
-    {COLOR_ICON_PLY_BLUE,       COLOR_ICON_REC_BLUE},       //  10  blue
-    {COLOR_ICON_PLY_BLUE_DK,    COLOR_ICON_REC_BLUE_DK},    //  11  blue_dark
-    {COLOR_ICON_PLY_BLUE_LT,    COLOR_ICON_REC_BLUE_LT},    //  12  blue_light
+unsigned char *chdk_colors = ply_colors;
 
-    {COLOR_ICON_PLY_GREY,       COLOR_ICON_REC_GREY},       //  13  grey
-    {COLOR_ICON_PLY_GREY_DK,    COLOR_ICON_REC_GREY_DK},    //  14  grey_dark
-    {COLOR_ICON_PLY_GREY_LT,    COLOR_ICON_REC_GREY_LT},    //  15  grey_light
-
-    {COLOR_ICON_PLY_YELLOW,     COLOR_ICON_REC_YELLOW},     //  16  yellow
-    {COLOR_ICON_PLY_YELLOW_DK,  COLOR_ICON_REC_YELLOW_DK},  //  17  yellow_dark
-    {COLOR_ICON_PLY_YELLOW_LT,  COLOR_ICON_REC_YELLOW_LT},  //  18  yellow_light
-
-    {COLOR_ICON_PLY_GREY_DK_TRANS,COLOR_ICON_REC_GREY_DK_TRANS} // 19  transparent dark grey
-};
-
-const unsigned char const module_colors[] = {
-    COLOR_WHITE         ,
-    COLOR_RED           ,
-    COLOR_GREY          ,
-    COLOR_GREY_DK       ,
-    COLOR_GREEN         ,
-    COLOR_BLUE_LT       ,
-    COLOR_BLUE          ,
-    COLOR_YELLOW        ,
-    COLOR_RED_DK        ,
-    COLOR_RED_LT        ,
-    COLOR_GREY_LT       ,
-    COLOR_REC_RED       ,
-    COLOR_PLY_RED       ,
-    COLOR_REC_GREEN     ,
-    COLOR_PLY_GREEN     ,
-    COLOR_REC_BLUE      ,
-    COLOR_PLY_BLUE      ,
-    COLOR_REC_CYAN      ,
-    COLOR_PLY_CYAN      ,
-    COLOR_REC_MAGENTA   ,
-    COLOR_PLY_MAGENTA   ,
-    COLOR_REC_YELLOW    ,
-    COLOR_PLY_YELLOW    ,
-};
-
-//-------------------------------------------------------------------
-
-// Colors for icons
-// 3 shades for each color
-//  icon_xxx[0] = dark, icon_xxx[1] = medium, icon_xxx[2] = light
-color icon_green[3], icon_red[3], icon_yellow[3], icon_grey[3];
-
-void draw_get_icon_colors()
+void set_palette()
 {
     if (camera_info.state.mode_rec)
-    {
-        icon_green[0]  = COLOR_ICON_REC_GREEN_DK;  icon_green[1]  = COLOR_ICON_REC_GREEN;  icon_green[2]  = COLOR_ICON_REC_GREEN_LT;
-        icon_yellow[0] = COLOR_ICON_REC_YELLOW_DK; icon_yellow[1] = COLOR_ICON_REC_YELLOW; icon_yellow[2] = COLOR_ICON_REC_YELLOW_LT;
-        icon_red[0]    = COLOR_ICON_REC_RED_DK;    icon_red[1]    = COLOR_ICON_REC_RED;    icon_red[2]    = COLOR_ICON_REC_RED_LT;
-        icon_grey[0]   = COLOR_ICON_REC_GREY_DK;   icon_grey[1]   = COLOR_ICON_REC_GREY;   icon_grey[2]   = COLOR_ICON_REC_GREY_LT;
-    }
+        chdk_colors = rec_colors;
     else
-    {
-        icon_green[0]  = COLOR_ICON_PLY_GREEN_DK;  icon_green[1]  = COLOR_ICON_PLY_GREEN;  icon_green[2]  = COLOR_ICON_PLY_GREEN_LT;
-        icon_yellow[0] = COLOR_ICON_PLY_YELLOW_DK; icon_yellow[1] = COLOR_ICON_PLY_YELLOW; icon_yellow[2] = COLOR_ICON_PLY_YELLOW_LT;
-        icon_red[0]    = COLOR_ICON_PLY_RED_DK;    icon_red[1]    = COLOR_ICON_PLY_RED;    icon_red[2]    = COLOR_ICON_PLY_RED_LT;
-        icon_grey[0]   = COLOR_ICON_PLY_GREY_DK;   icon_grey[1]   = COLOR_ICON_PLY_GREY;   icon_grey[2]   = COLOR_ICON_PLY_GREY_LT;
-    }
+        chdk_colors = ply_colors;
 }
+
+color get_script_color(int cl)
+{
+    if (cl < 256)
+        return cl;
+    else
+        return chdk_colors[cl-256];
+}
+
+// Convert user adjustable color (from conf struct) to Canon colors
+color chdkColorToCanonColor(chdkColor col)
+{
+    if (col.type)
+        return chdk_colors[col.col];
+    return col.col;
+}
+
+twoColors user_color(confColor cc)
+{
+    color fg = chdkColorToCanonColor(cc.fg);
+    color bg = chdkColorToCanonColor(cc.bg);
+
+    return MAKE_COLOR(bg,fg);
+}
+
+//-------------------------------------------------------------------

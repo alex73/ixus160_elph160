@@ -16,7 +16,9 @@
             module_set_script_lang
             module_run
             module_preload
-            &module_colors
+            &chdk_colors
+
+            &script_version
 
             &libscriptapi
             &libtextbox
@@ -28,6 +30,7 @@
             &libmpopup
             &libtxtread
             &libhisto
+            &libshothisto
 
             &altGuiHandler
             &camera_info
@@ -120,25 +123,24 @@
             isupper
             isxdigit
 
-            draw_txt_string
+            text_dimensions
             draw_string
+            draw_string_justified
+            draw_text_justified
             draw_string_scaled
-            draw_rect
-            draw_filled_rect
-            draw_filled_ellipse
-            draw_filled_round_rect
             draw_line
             draw_char
             draw_get_pixel
             draw_pixel
-            draw_txt_char
-            draw_rect_thick
-            draw_filled_rect_thick
-            draw_rect_shadow
             draw_ellipse
             draw_set_draw_proc
             draw_restore
+            draw_button
+            draw_rectangle
 
+            chdkColorToCanonColor
+            user_color
+            get_script_color
             gui_set_mode
             gui_default_kbd_process_menu_btn
             get_batt_perc
@@ -150,6 +152,10 @@
 
             gui_draw_osd_elements
             gui_osd_draw_clock
+
+            gui_activate_sub_menu
+            gui_menu_back
+            get_curr_menu
 
             vid_get_bitmap_fb
             vid_bitmap_refresh
@@ -168,9 +174,11 @@
             hook_raw_image_addr
             raw_prepare_develop
             get_raw_pixel
+            set_raw_pixel
             patch_bad_pixel
             raw_createfile
             raw_closefile
+            raw_get_path
 
             kbd_get_autoclicked_key
             kbd_is_key_pressed
@@ -271,6 +279,7 @@
             GetFreeCardSpaceKb
             get_exposure_counter
             get_target_dir_name
+            get_target_file_num
             GetJpgCount
             GetRawCount
 
@@ -298,6 +307,7 @@
             console_set_autoredraw
             console_set_layout
             script_console_add_line
+            script_console_add_error
             script_print_screen_statement
 
             get_focal_length
@@ -335,9 +345,6 @@
             lens_get_zoom_point
             play_sound
 
-            shot_histogram_get_range
-            shot_histogram_isenabled
-            shot_histogram_set
             live_histogram_read_y
 
             stat_get_vbatt
@@ -361,7 +368,6 @@
             levent_table
 
             script_set_terminate_key
-            script_colors
             script_start_gui
             script_end
 
@@ -376,6 +382,8 @@
             switch_mode_usb
 
             force_usb_state
+
+            &usb_sync_wait_flag
 
             call_func_ptr
             _ExecuteEventProcedure

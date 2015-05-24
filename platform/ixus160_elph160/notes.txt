@@ -1,4 +1,37 @@
-// Highly beta :)
+************************************
+IXUS160 / ELPH160 Notes 
+************************************
 
-ALT key: playback
-RAW toggle: video
+To enter CHDK <ALT> mode use the [>] Play button.
+
+This is a beta port, use at your own risk!
+
+TESTED
+******
+
+Filewrite task
+PTP support
+Overrides
+
+NOT IMPLEMENTED
+***************
+
+exmem support
+
+OTHER ISSUES
+************
+
+KNOWN BUGS
+**********
+
+Edge display only shown on half the screen (vertically)
+RAW saving does not work
+Some buffers are missing (zebra and al.)
+
+THANKS
+******
+
+This port could not have been done without the help of the CHDK folks.
+Without any specific order, thanks to reyalp, waterwingz, srsa_4c;
+Thanks to amavroidis for donating the camera to help testing;
+Thanks to markvandenborre for testing my bilions of failures;

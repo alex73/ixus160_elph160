@@ -209,6 +209,7 @@ static const struct keyword_token keywords[] = {
   {"@default",                TOKENIZER_REM},
   {"@range",                  TOKENIZER_REM},
   {"@values",                 TOKENIZER_REM},
+  {"@chdk_version",           TOKENIZER_REM},
 
   {"md_detect_motion",        TOKENIZER_MD_DETECT_MOTION},
   {"md_get_cell_diff",        TOKENIZER_MD_GET_CELL_DIFF},
@@ -218,7 +219,8 @@ static const struct keyword_token keywords[] = {
   {"get_autostart",           TOKENIZER_GET_SCRIPT_AUTOSTART},
   {"set_autostart",           TOKENIZER_SET_SCRIPT_AUTOSTART},
   {"get_usb_power",           TOKENIZER_GET_USB_POWER},
-  {"usb_force_active",        TOKENIZER_FORCE_USB_PRESENT},  
+  {"usb_force_active",        TOKENIZER_FORCE_USB_PRESENT},
+  {"usb_sync_wait",           TOKENIZER_USB_SYNC_WAIT},
   {"exit_alt",                TOKENIZER_EXIT_ALT},
   {"enter_alt",               TOKENIZER_ENTER_ALT}, 
   {"get_alt_mode",            TOKENIZER_GET_ALT_MODE}, 

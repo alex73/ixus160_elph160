@@ -60,13 +60,23 @@ void *vid_get_bitmap_active_palette()
     return (p+1);
 }
 
+
+
+
 // Y multiplier for cameras with 480 pixel high viewports (CHDK code assumes 240)
 int vid_get_viewport_yscale()
 {
 return 2;
 }
+
 int vid_get_palette_type()   { return 5; }
 int vid_get_palette_size()   { return 256 * 4 ; }
+
+
+
+
+
+
 
 //taken from n
 int vid_get_viewport_width()
@@ -89,7 +99,17 @@ long vid_get_viewport_height()
   }
   extern int _GetVRAMVPixelsSize();
   return _GetVRAMVPixelsSize() >> 1;
+
+
+
+
+
+
 }
+
+
+
+
 
 /*
 void *vid_get_viewport_fb_d()
@@ -155,14 +175,20 @@ int vid_get_aspect_ratio()
     return 0; // 4:3
 }
 
+
+
+
 // Function to load CHDK custom colors into active Canon palette
 void load_chdk_palette()
+
 {
     extern int active_palette_buffer;
 	// Only load for the standard record and playback palettes
 	if ((active_palette_buffer == 0) || (active_palette_buffer == 5))
     {
         int *pal = (int*)vid_get_bitmap_active_palette();
+
+
         if (pal[CHDK_COLOR_BASE+0] != 0x3F3ADF62)
         {
             pal[CHDK_COLOR_BASE+0]  = 0x3F3ADF62;  // Red
@@ -179,9 +205,12 @@ void load_chdk_palette()
             pal[CHDK_COLOR_BASE+11] = 0x3F819137;  // Dark Yellow
             pal[CHDK_COLOR_BASE+12] = 0x3FDED115;  // Light Yellow
 
+
+
             extern char palette_control;
             palette_control = 1;
             vid_bitmap_refresh();
         }
     }
 }
+

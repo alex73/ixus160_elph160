@@ -1,6 +1,8 @@
+# Extra
 bin/
 .svn
 fi2.inc
+localbuildconf.inc
 
 # Object files
 *.o
@@ -20,3 +22,9 @@ fi2.inc
 
 # Executables
 *.out
+*.exe
+
+# Generated files
+*.dump
+*.syms
+main.bin

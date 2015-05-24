@@ -1,27 +1,22 @@
 topdir=../../
 
-SKIPPLATFORMCHECK=1
-SKIPINTERWORK=1
+include $(topdir)makefile_modules.inc
 
-include $(topdir)makefile.inc
+OBJS = $Osetjmp.o \
+       $Olapi.o $Olcode.o $Oldebug.o $Oldo.o $Oldump.o $Olfunc.o $Olgc.o $Ollex.o $Olmem.o \
+       $Olobject.o $Olopcodes.o $Olparser.o $Olstate.o $Olstring.o $Oltable.o $Oltm.o \
+       $Olundump.o $Olvm.o $Olzio.o \
+       $Olauxlib.o $Olbaselib.o $Oldblib.o $Oltablib.o $Olmathlib.o $Olimathlib.o \
+	   $Oliolib.o $Oloslib.o $Olstrlib.o $Oloadlib.o $Olinit.o
 
-CFLAGS+=$(CTHUMB) -mlong-calls -DCHDK_MODULE_CODE
+all: $Oliblua.a
 
-OBJS = setjmp.o \
-       lapi.o lcode.o ldebug.o ldo.o ldump.o lfunc.o lgc.o llex.o lmem.o \
-       lobject.o lopcodes.o lparser.o lstate.o lstring.o ltable.o ltm.o \
-       lundump.o lvm.o lzio.o \
-       lauxlib.o lbaselib.o ldblib.o ltablib.o lmathlib.o limathlib.o \
-	   liolib.o loslib.o lstrlib.o loadlib.o linit.o
-
-all: liblua.a
-
-liblua.a: $(OBJS)
+$Oliblua.a: $(OBJS)
 
 check:
 
 clean:
-	rm -f $(OBJS) *.a
+	rm -f $O*.* *.o *.a
 
 distclean: clean
 	rm -f $(OBJS:.o=.d)
