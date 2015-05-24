@@ -1,11 +1,11 @@
     .section .entry
 
 // looks like idle cycle is required for proper shutdown
-    MOV     R3, #0x8000
-4:
-    SUB	    R3, R3, #1
-    CMP	    R3, #0
-    BNE	    4b
+//    MOV     R3, #0x8000
+//4:
+//    SUB	    R3, R3, #1
+//    CMP	    R3, #0
+//    BNE	    4b
 
 // ordinary startup...
 

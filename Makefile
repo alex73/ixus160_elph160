@@ -121,6 +121,10 @@ firsub: platformcheck all
     endif
 	@echo "**** Firmware creation completed successfully"
 
+.PHONY: uploadtocam
+uploadtocam: fir
+	@echo Uploading to camera...
+	../../chdkptp-r658-win32/chdkptp -i -c -e"u $(topdir)bin/DISKBOOT.BIN" -e"q"
 
 .PHONY: upload
 upload: firzipsubcomplete

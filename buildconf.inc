@@ -6,7 +6,7 @@ OPT_DEBUGGING=1
 # By default this is a user controlled setting in the CHDK UI.
 # Setting this build option will permanently enable native calls
 # WARNING: This is DANGEROUS. e.g. call_event_proc("EraseSectorOfRom",...)
-OPT_FORCE_LUA_CALL_NATIVE=1
+#OPT_FORCE_LUA_CALL_NATIVE=1
 
 # experimental - allocate memory from alternate heap. Default 2MB from EXMEM_RAMDISK
 # See exmem_malloc_init in generic/wrappers.c
@@ -34,9 +34,9 @@ OPT_FI2=1
 #OPT_WARNINGS=1
 
 # If enabled (and reference binaries are present in /tools), compiler will generate function signatures
-OPT_GEN_SIGS=1
+#OPT_GEN_SIGS=1
 # If enabled (and firmware binaries are present) compiler will update "stubs_entry.S"
-OPT_GEN_STUBS=1
+#OPT_GEN_STUBS=1
 
 # for CHDK-DE presets without OPT_DEFAULT_LANG
 #OPT_DE_VERSION=1
@@ -73,4 +73,4 @@ OPT_GEN_STUBS=1
 #OPT_DEFAULT_LANG=
 
 # Default svn revision. Used when svnversion fail.
-DEF_SVN_REF=0
+DEF_SVN_REF=

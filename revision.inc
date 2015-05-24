@@ -1,1 +1,1 @@
-BUILD_SVNREV := exporté
+BUILD_SVNREV := 

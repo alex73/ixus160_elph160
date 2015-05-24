@@ -194,12 +194,6 @@ void core_spytask()
 
     shooting_init();
 
-    // schedule memdump
-    memdmp_delay = 5; // 5 sec delay before dumping
-    conf.memdmp_size = 8*1024*1024; // 8MB
-    conf.memdmp_start = 0;
-    schedule_memdump();
-
     while (1)
     {
         // Set up camera mode & state variables
