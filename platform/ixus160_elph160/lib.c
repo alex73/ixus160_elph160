@@ -150,9 +150,8 @@ void *vid_get_viewport_live_fb() {
 
 char *hook_raw_image_addr()
 {
-//FFB7C9F0
-// Also try 40D608E0
-return (char*) 0x41FF6B60;
+//FFB7C910 (search for CRAW BUFF)
+return (char*) 0x43737E20;
 }
 
 

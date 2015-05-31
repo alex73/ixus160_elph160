@@ -211,9 +211,12 @@ FW 2
 PATCHSUB ref=0
 FW 8
 >>>
-//"    BL      capt_seq_hook_raw_here \n"         // added
+"    BL      capt_seq_hook_raw_here \n"         // added
 <<<
 FW $
+>>>
+"    .ltorg\n"         // added
+<<<
 ENDASM
 ENDFUNC
 
@@ -249,8 +252,8 @@ FW comment=" 2nd msg after shoot"
 FW
 FW comment=" 1st msg after shoot"
 FW 12
->>>
-//"    BL      capt_seq_hook_raw_here \n"         // added
+>>> prelabel
+"    BL      capt_seq_hook_raw_here \n"         // added
 <<<
 FW $
 ENDASM

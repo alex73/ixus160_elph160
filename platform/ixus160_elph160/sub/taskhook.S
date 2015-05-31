@@ -8,10 +8,10 @@
 " BEQ exitHook\n" // below compares not necessary if this check has found something.
 
 /*** INSTALL task_developseq() hook ***/
-//" LDR R1, =task_DvlpSeqTask\n"
-//" CMP R1, R0\n"
-//" LDREQ R0, =task_developseq_my\n"
-//" BEQ exitHook\n"
+" LDR R1, =task_DvlpSeqTask\n"
+" CMP R1, R0\n"
+" LDREQ R0, =task_developseq_my\n"
+" BEQ exitHook\n"
 
 /*** INSTALL exp_drv_task() hook ***/
 " LDR R1, =task_ExpDrv\n"

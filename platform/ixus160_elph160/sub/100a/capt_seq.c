@@ -11,6 +11,20 @@
 
 //#define PAUSE_FOR_FILE_COUNTER 1000  // Enable delay in capt_seq_hook_raw_here to ensure file counter is updated
 
+
+extern void _LogCameraEvent(int,char*,int,int,int,int,int);
+
+void log1(int a, int b, int c, int d)
+{
+    _LogCameraEvent(0x20,"dvlp q1 %x %x %x, %x",a,b,c,d,0);
+}
+
+int logx2(int a, int b)
+{
+    _LogCameraEvent(0x20,"capt %x",b,0,0,0,0);
+    return a;
+}
+
 #include "../../../generic/capt_seq.c"
 
 /*************************************************************/
@@ -93,6 +107,10 @@ asm volatile (
 //To do: Check if this is needed.
 //"    MOV     R0, #0\n"                          // added
 //"    STR     R0, [R5,#0x28]\n"                  // added, fixes overrides behavior at short shutter press (from S95)
+// debug
+"mov r1, #0\n"
+"bl logx2\n"
+// debug end
 "    LDR     R0, [R5, #0x28] \n"
 "    CMP     R0, #0 \n"
 "    BLNE    sub_FF99AA5C_my \n"  // --> Patched. Old value = 0xFF99AA5C.
@@ -347,6 +365,10 @@ asm volatile (
 "    BL      sub_FF99A48C \n"
 "    MOV     R0, R4 \n"
 "    BL      sub_FFAD7C94_my \n"  // --> Patched. Old value = 0xFFAD7C94.
+// debug
+"mov r1, #1\n"
+"bl logx2\n"
+// debug end
 "    TST     R0, #1 \n"
 "    BEQ     loc_FF99AB34 \n"
 
@@ -537,6 +559,11 @@ asm volatile (
 
 "loc_FF99AA2C:\n"
 "    BL      sub_FFAD7C94_my \n"  // --> Patched. Old value = 0xFFAD7C94.
+"    BL      capt_seq_hook_raw_here \n"         // added
+// debug
+"mov r1, #2\n"
+"bl logx2\n"
+// debug end
 "    B       loc_FF99AA50 \n"
 
 "loc_FF99AA34:\n"
@@ -550,9 +577,14 @@ asm volatile (
 
 "loc_FF99AA50:\n"
 //"    BL      capt_seq_hook_raw_here \n"         // added
+// debug
+"mov r1, #3\n"
+"bl logx2\n"
+// debug end
 "    MOV     R0, #0 \n"
 "    STR     R0, [R7, #0x28] \n"
 "    LDMFD   SP!, {R2-R8,PC} \n"
+"    .ltorg\n"         // added
 );
 }
 
@@ -629,6 +661,10 @@ asm volatile (
 "loc_FF99A55C:\n"
 "    BL      wait_until_remote_button_is_released\n" // added
 "    BL      capt_seq_hook_set_nr\n"                 // added
+// debug
+"mov r1, #4\n"
+"bl logx2\n"
+// debug end
 "    LDR     R0, [R4, #0x20] \n"
 "    LDR     PC, =0xFF99A560 \n"  // Continue in firmware
 );
@@ -670,6 +706,14 @@ asm volatile (
 "    LDMFD   SP!, {R2-R8,PC} \n"
 
 "loc_FF99BCD8:\n"
+// debug start
+    "ldr r3, [sp, #4]\n"
+    "ldr r0, [r3, #0]\n"        // message from queue 2
+    "ldr r1, [r3, #4]\n"        // 2nd word of the receiver message
+    "ldr r2, [r3, #8]\n"        // 3rd word of the receiver message
+    "ldr r3, [r5, #0x184]\n"    // 'some variable'
+    "bl log1\n"                 // put to camera log
+// debug end
 "    LDR     R0, [R5, #0x184] \n"
 "    CMP     R0, #0 \n"
 "    LDRNE   R0, [SP, #4] \n"
@@ -706,6 +750,7 @@ asm volatile (
 
 "loc_FF99BD44:\n"
 //"    BL      capt_seq_hook_raw_here \n"         // added
+//"    BL      debug_func_1 \n"         // added
 "    LDR     R4, [SP, #4] \n"
 "    LDR     R0, [R4, #4] \n"
 "    CMP     R0, #0 \n"
@@ -719,7 +764,13 @@ asm volatile (
 "    TST     R0, #1 \n"
 "    BEQ     loc_FF99BCD8 \n"
 "    B       loc_FF99BC78 \n"
+".ltorg\n" // added
 );
+}
+
+long debug_func_1(long x) {
+  *(int *)(0x40000000) += 1;
+  return x;
 }
 
 /*************************************************************/
