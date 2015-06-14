@@ -1,31 +1,24 @@
 #include "platform.h"
 
-
-
-// Just iterate over and compare to determine correct values
+// Tested by iterating over values
 const CapturemodeMap modemap[] = {
-    { MODE_PORTRAIT,        32790 },
+    { MODE_PORTRAIT,            32790 },
     { MODE_P,                   32773 },
-    { MODE_LONG_SHUTTER,    32775 },
+    { MODE_LONG_SHUTTER,        32775 },
     { MODE_AUTO,                32768 },
-    { MODE_LOWLIGHT,        32813 },
+    { MODE_LOWLIGHT,            32813 },
     { MODE_DIGITAL_IS,          33347 },
-    { MODE_FACE_SELF_TIMER, 33332 },
-    { MODE_FISHEYE,         33335 },
-    { MODE_TOY_CAMERA,      33339 },
-    { MODE_MONOCHROME,      33343 },
+    { MODE_FACE_SELF_TIMER,     33332 },
+    { MODE_FISHEYE,             33335 },
+    { MODE_TOY_CAMERA,          33339 },
+    { MODE_MONOCHROME,          33343 },
     { MODE_LIVE,                33345 },
-    { MODE_SUPER_VIVID,     33330 },
-    { MODE_POSTER_EFFECT,   33331 },
-    { MODE_MINIATURE,       33336 },
-    { MODE_SNOW,            32798 },
-    { MODE_FIREWORK,        32800 },
+    { MODE_SUPER_VIVID,         33330 },
+    { MODE_POSTER_EFFECT,       33331 },
+    { MODE_MINIATURE,           33336 },
+    { MODE_SNOW,                32798 },
+    { MODE_FIREWORK,            32800 },
 } ;
-
-//To do: copied from ixus140
-// TODO this holds and exposure count of some kind, but it only updates when rebooting or switching to play!
-#define PARAM_FILE_COUNTER      0x1
-
 
 //To do
 // http://chdk.setepontos.com/index.php?topic=2031.msg27692#msg27692
@@ -95,7 +88,6 @@ const ShutterSpeed shutter_speeds_table[] = {
     {  32, 1024, "1/1600",  625 },
 };
 
-// Fill something for now...
 const ISOTable iso_table[] = {
     {  0,    0, "Auto", -1},
     {  1,  100,  "100", -1},
@@ -107,15 +99,17 @@ const ISOTable iso_table[] = {
 
 #include "../generic/shooting.c"
 
+// Hardcoded fix for filename counter offsetted by 1
 long get_file_next_counter() {
     return get_file_counter() + 1;
 }
 
+// Hardcoded fix for filename counter offsetted by 1
 long get_target_file_num() {
     return get_exposure_counter() + 1;
 }
 
 void get_target_dir_name(char *out) {
     extern void _GetImageFolder(char*,int,int);
-    _GetImageFolder(out,get_file_next_counter(),CAM_DATE_FOLDER_NAMING);
+    _GetImageFolder(out, get_file_next_counter(), CAM_DATE_FOLDER_NAMING);
 }

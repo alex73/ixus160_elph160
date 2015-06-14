@@ -10,22 +10,20 @@ TESTED
 ******
 
 Filewrite task
+RAW/DNG shooting
 PTP support
 Overrides
 
 NOT IMPLEMENTED
 ***************
 
+video stuff
 exmem support
-
-OTHER ISSUES
-************
 
 KNOWN BUGS
 **********
 
 Edge display only shown on half the screen (vertically)
-RAW saving does not work
 Some buffers are missing (zebra and al.)
 
 THANKS
@@ -34,4 +32,4 @@ THANKS
 This port could not have been done without the help of the CHDK folks.
 Without any specific order, thanks to reyalp, waterwingz, srsa_4c;
 Thanks to amavroidis for donating the camera to help testing;
-Thanks to markvandenborre for testing my bilions of failures;
+Thanks to markvandenborre for testing my billions of failures;
