@@ -24,6 +24,8 @@
 #define CAM_HAS_FILEWRITETASK_HOOK 1
 #define CAM_FILEWRITETASK_SEEKS	1
 
+#define CAM_FILE_COUNTER_IS_VAR 1 // file counter is variable file_counter_var in stubs, not a param
+
 // Testing
 #define CAM_LOAD_CUSTOM_COLORS 1
 #undef CAM_USES_ASPECT_CORRECTION

@@ -19,3 +19,5 @@ DEF(palette_buffer_ptr, 0x7C10) // add 0x4
 // DEF(palette_control, 0x3AB8) // 3AAC + 0xC around sub_FF8A2914
 // 7C0C - 0x8 and around sub_FF8A2914, compare to ixus140, search for "Window Instance"
 DEF(palette_control, 0x7C04)
+
+DEF(file_counter_var, 0x6b4c) // found by searching for "FileBackupProperty.c"
