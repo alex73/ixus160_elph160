@@ -1,0 +1,30 @@
+# Extra
+bin/
+.svn
+fi2.inc
+localbuildconf.inc
+
+# Object files
+*.o
+*.ko
+*.obj
+*.elf
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Libraries
+*.lib
+*.a
+*.la
+*.lo
+
+# Executables
+*.out
+*.exe
+
+# Generated files
+*.dump
+*.syms
+main.bin

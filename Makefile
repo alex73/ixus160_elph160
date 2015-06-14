@@ -170,6 +170,17 @@ firzipsubcomplete: infoline clean firsub
 		)
     endif
 
+.PHONY: upload
+upload: firzipsubcomplete
+	@echo Uploading to gdrive...
+	drive upload --share --file $(bin)/$(ZIP_SMALL)
+	drive upload --share --file $(bin)/$(ZIP_FULL)
+
+.PHONY: uploadtocam
+uploadtocam: fir
+	@echo Uploading to camera...
+	../../chdkptp-r658-win32/chdkptp -i -c -e"u $(bin)/DISKBOOT.BIN"
+
 print-missing-dump: platformcheck
 	if [ ! -s $(TARGET_PRIMARY) ] ; then \
 		echo "missing primary for $(PLATFORM) $(PLATFORMSUB)" ; \
